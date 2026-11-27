@@ -1,0 +1,50 @@
+name: Promote stable Docker image
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-latest
+
+jobs:
+  promote:
+    if: vars.YAARE_RELEASE_DOCKER == 'true' && !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Select the latest published stable release
+        id: stable
+        shell: bash
+        run: |
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq 'select(any(.assets[]; .name == "compose.yaml")) | .tag_name')
+          highest=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name' |
+            awk '/^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/' | sort -V | tail -1)
+          if [[ -n "$highest" && "$latest" == "$highest" ]]; then
+            echo "tag=$latest" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: docker/login-action@v4
+        if: steps.stable.outputs.tag != ''
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Point latest at the digest verified for this release
+        if: steps.stable.outputs.tag != ''
+        shell: bash
+        env:
+          TAG: ${{ steps.stable.outputs.tag }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern compose.yaml --dir "$RUNNER_TEMP"
+          ref=$(env -u YAARE_IMAGE docker compose -f "$RUNNER_TEMP/compose.yaml" config --images)
+          digest="${ref##*@}"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ && "$ref" == "$image:${TAG#v}@$digest" ]]
+          docker buildx imagetools create --tag "$image:latest" "$image@$digest"
+          [[ "$(docker buildx imagetools inspect "$image:latest" --format '{{.Manifest.Digest}}')" == "$digest" ]]

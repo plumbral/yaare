@@ -1,0 +1,28 @@
+@font-face {
+  font-family: Inter;
+  src: url('../fonts/assets/inter.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Google Sans Code';
+  src: url('../fonts/assets/google-sans-code.woff2') format('woff2');
+  font-weight: 300 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Yaare Maple Mono CN';
+  src: url('../fonts/assets/maple-mono-cn.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@supports (font-size-adjust: from-font) {
+  html { font-size-adjust: from-font; }
+}
+@supports not (font-size-adjust: from-font) {
+  html { font-size-adjust: none; }
+}
+:where(.xterm) { font-size-adjust: none; }

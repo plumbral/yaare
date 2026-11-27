@@ -1,0 +1,16 @@
+:focus-visible {
+  outline: none;
+}
+
+:focus-visible:where(button, a[href], summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="radio"], [role="treeitem"], [role="separator"]):not(:where([data-quiet-dialog-focus], [data-yaare-compound-action] *, .xterm *)),
+input:focus-visible ~ .astryx-switch,
+.astryx-checkbox-input:has(input:focus-visible) .astryx-checkbox-indicator {
+  background-image: linear-gradient(var(--color-overlay-pressed), var(--color-overlay-pressed));
+
+  @media (forced-colors: active) {
+    background-image: none;
+    background-color: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+}

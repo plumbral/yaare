@@ -1,0 +1,16 @@
+#app:empty {
+  --startup-canvas: light-dark(#eeefee, #202122);
+  background: var(--color-background-body, var(--startup-canvas));
+}
+
+[data-astryx-theme="yaare-paper"] #app:empty { --startup-canvas: light-dark(#faf9f5, #141413); }
+[data-astryx-theme="yaare-purple"] #app:empty { --startup-canvas: light-dark(#eeecef, #242328); }
+[data-astryx-theme="yaare-blue"] #app:empty { --startup-canvas: light-dark(#ebeff1, #22262a); }
+[data-astryx-theme="yaare-green"] #app:empty { --startup-canvas: light-dark(#eceee9, #232722); }
+
+#app:empty::before {
+  content: "";
+  display: block;
+  block-size: 3rem;
+  background: color-mix(in srgb, CanvasText 6%, transparent);
+}

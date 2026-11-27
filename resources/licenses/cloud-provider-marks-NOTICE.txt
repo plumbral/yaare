@@ -1,0 +1,61 @@
+Cloud provider icons in Yaare
+
+Provider names and trademarks belong to their respective owners.
+Yaare bundles the following marks from these icon collections:
+
+Simple Icons collection: see simple-icons-LICENSE (CC0).
+Lobe Icons collection: see lobe-icons-LICENSE (MIT).
+IBM Carbon Icons: Copyright IBM Corp. 2016, 2023. See carbon-icons-LICENSE
+(Apache-2.0). The ibm-cloud icon is adapted to the local SVG viewport.
+
+Alibaba Cloud (alibaba)
+  Simple Icons 16.38.1, alibabacloud — https://www.alibabagroup.com/en/ir/reports
+AWS (aws)
+  Lobe Icons 1.106.0 — https://registry.npmjs.org/@lobehub/icons-static-svg/-/icons-static-svg-1.106.0.tgz (icons/aws.svg)
+Microsoft Azure (azure)
+  Lobe Icons 1.106.0 — https://registry.npmjs.org/@lobehub/icons-static-svg/-/icons-static-svg-1.106.0.tgz (icons/azure.svg)
+Baidu AI Cloud (baidu)
+  Lobe Icons 1.106.0 — https://registry.npmjs.org/@lobehub/icons-static-svg/-/icons-static-svg-1.106.0.tgz (icons/baiducloud.svg)
+Cloudflare (cloudflare)
+  Simple Icons 16.38.1, cloudflare — https://www.cloudflare.com/logo/
+Contabo (contabo)
+  Simple Icons 16.38.1, contabo — https://contabo.com
+DigitalOcean (digitalocean)
+  Simple Icons 16.38.1, digitalocean — https://www.digitalocean.com/press/
+Google Cloud (google)
+  Simple Icons 16.38.1, googlecloud — https://cloud.google.com
+Hetzner (hetzner)
+  Simple Icons 16.38.1, hetzner — https://www.hetzner.com
+Huawei Cloud (huawei)
+  Lobe Icons 1.106.0 — https://registry.npmjs.org/@lobehub/icons-static-svg/-/icons-static-svg-1.106.0.tgz (icons/huaweicloud.svg)
+IBM Cloud (ibm)
+  IBM Carbon Icons 11.92.0 — https://carbondesignsystem.com/elements/icons/library/ (ibm-cloud/24)
+Akamai Linode (linode)
+  Simple Icons 16.38.1, akamai — https://www.akamai.com
+Qiniu Cloud (qiniu)
+  Lobe Icons 1.106.0 — https://registry.npmjs.org/@lobehub/icons-static-svg/-/icons-static-svg-1.106.0.tgz (icons/qiniu.svg)
+Scaleway (scaleway)
+  Simple Icons 16.38.1, scaleway — https://ultraviolet.scaleway.com
+Tencent Cloud (tencent)
+  Lobe Icons 1.106.0 — https://registry.npmjs.org/@lobehub/icons-static-svg/-/icons-static-svg-1.106.0.tgz (icons/tencentcloud.svg)
+Volcengine (volcengine)
+  Lobe Icons 1.106.0 — https://registry.npmjs.org/@lobehub/icons-static-svg/-/icons-static-svg-1.106.0.tgz (icons/volcengine.svg)
+Vultr (vultr)
+  Simple Icons 16.38.1, vultr — https://www.vultr.com/company/brand-assets
+
+The following providers use the same general-purpose CloudIcon from Heroicons
+2.2.0 (24px solid). See heroicons-LICENSE for its MIT license.
+
+CTyun (ctyun)
+China Mobile Cloud (ecloud)
+Hivelocity (hivelocity)
+JD Cloud (jd)
+Kingsoft Cloud (kingsoft)
+Leaseweb (leaseweb)
+Nebius (nebius)
+Oracle Cloud (oracle)
+OVHcloud (ovh)
+Sakura Cloud (sakura)
+UCloud (ucloud)
+China Unicom Cloud (unicom)
+UpCloud (upcloud)

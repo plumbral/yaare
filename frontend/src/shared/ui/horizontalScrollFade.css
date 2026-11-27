@@ -1,0 +1,34 @@
+:is([data-horizontal-scroll-fade], [data-host-column-window]) {
+  --horizontal-scroll-fade-size: var(--spacing-3);
+}
+
+[data-horizontal-scroll-fade] {
+  scroll-padding-inline: var(--horizontal-scroll-fade-size);
+}
+
+[data-horizontal-scroll-fade][data-overflow-x-start],
+[data-host-list-layout]:has([data-host-column-scroll][data-overflow-x-start]) [data-host-column-window] {
+  --horizontal-scroll-fade-start: var(--horizontal-scroll-fade-size);
+}
+
+[data-horizontal-scroll-fade][data-overflow-x-end],
+[data-host-list-layout]:has([data-host-column-scroll][data-overflow-x-end]) [data-host-column-window] {
+  --horizontal-scroll-fade-end: var(--horizontal-scroll-fade-size);
+}
+
+:is([data-horizontal-scroll-fade], [data-host-column-window]):dir(rtl) {
+  --horizontal-scroll-fade-direction: to left;
+}
+
+[data-horizontal-scroll-fade]:is([data-overflow-x-start], [data-overflow-x-end]),
+[data-host-list-layout]:has([data-host-column-scroll]:is([data-overflow-x-start], [data-overflow-x-end])) [data-host-column-window] {
+  --horizontal-scroll-mask: linear-gradient(
+    var(--horizontal-scroll-fade-direction, to right),
+    transparent,
+    black var(--horizontal-scroll-fade-start, 0px),
+    black calc(100% - var(--horizontal-scroll-fade-end, 0px)),
+    transparent
+  );
+  -webkit-mask-image: var(--horizontal-scroll-mask);
+  mask-image: var(--horizontal-scroll-mask);
+}

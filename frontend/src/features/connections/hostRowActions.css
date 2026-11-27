@@ -1,0 +1,24 @@
+#panel-hosts [data-row-key] button:enabled [data-host-secondary-icon] {
+  color: var(--color-text-primary);
+}
+
+@media (hover: hover) {
+  #panel-hosts [data-row-key]:not(:hover, :focus-within) button:enabled:not([aria-expanded="true"]) [data-host-secondary-icon] {
+    color: var(--color-text-secondary);
+  }
+}
+
+#panel-hosts button:focus-visible [data-host-name] {
+  text-decoration: underline;
+  text-underline-offset: var(--spacing-1);
+}
+
+#panel-hosts [data-row-key] button:focus-visible:not(:has([data-host-name])) {
+  box-shadow: inset 0 calc(-1 * var(--spacing-0-5)) currentColor;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #panel-hosts [data-host-secondary-icon] {
+    transition: color var(--duration-fast) var(--ease-standard);
+  }
+}

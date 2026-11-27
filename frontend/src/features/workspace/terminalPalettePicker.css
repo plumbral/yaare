@@ -1,0 +1,26 @@
+[data-palette-mode-bar] {
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-element);
+}
+
+[data-terminal-palette] [data-palette-mode-bar] [role="radio"]:first-child {
+  flex-grow: 2.2;
+  border-inline-end: var(--border-width) solid var(--color-border);
+}
+
+.terminal-palette-command {
+  color: inherit;
+  font: var(--font-size-xs)/1 monospace;
+  white-space: nowrap;
+}
+
+.terminal-palette-light-half {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 50% 0 0);
+}
+
+[data-palette-mode-bar] [role="radio"][aria-checked="true"] {
+  background: color-mix(in srgb, var(--color-accent) 40%, var(--color-background-surface));
+  color: var(--color-text-primary);
+}

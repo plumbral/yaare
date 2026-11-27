@@ -1,0 +1,60 @@
+[data-pane-chooser] {
+  width: min(100%, calc(var(--spacing-10) * 9));
+  margin: auto;
+  flex-shrink: 0;
+  border: var(--border-width) solid var(--color-border-emphasized);
+  border-radius: var(--radius-element);
+  overflow: clip;
+}
+[data-pane-chooser] > * + * { border-block-start: var(--border-width) solid var(--color-border); }
+[data-pane-chooser] [role="combobox"] { min-height: var(--spacing-10); }
+[data-pane-chooser] > button > span { width: 100%; }
+[data-transfer-task-list] { container-type: inline-size; }
+[data-task-columns] {
+  display: grid;
+  grid-template-columns: minmax(0,1.5fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,1.2fr) minmax(0,.75fr) auto;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-height: var(--spacing-10);
+}
+[data-task-columns] > * { min-width: 0; }
+[data-task-columns] > :last-child { min-width: calc(var(--spacing-10) * 2.5); text-align: end; }
+[data-task-head] { border-block-end: var(--border-width) solid var(--color-border); }
+@container (max-width: 48rem) {
+  [data-task-columns] { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr) minmax(0,.8fr) auto; }
+  [data-task-columns] > :nth-child(3) { display: none; }
+}
+@container (max-width: 34rem) {
+  [data-task-columns] { grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; gap: var(--spacing-1); }
+  [data-task-columns] > :nth-child(2), [data-task-columns] > :nth-child(4) { display: none; }
+}
+
+[data-split-active]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  outline: var(--spacing-0-5) solid var(--color-accent);
+  outline-offset: calc(-1 * var(--spacing-0-5));
+}
+@media (forced-colors: active) {
+  [data-split-active]::after { outline-color: Highlight; }
+}
+
+[data-pane-drop] {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  border: var(--border-width) solid var(--color-accent);
+  border-radius: var(--radius-element);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+[data-pane-drop="left"] { right: 50%; }
+[data-pane-drop="right"] { left: 50%; }
+[data-pane-drop="top"] { bottom: 50%; }
+[data-pane-drop="bottom"] { top: 50%; }
+@media (hover: hover) {
+  [data-yaare-compound-action]:not(:hover):not(:focus-within) [data-tab-close] { opacity: 0; }
+}

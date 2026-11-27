@@ -1,0 +1,37 @@
+Yaare built-in terminal palettes
+
+These are readability adaptations, not unmodified upstream themes.
+Yaare adjusts low-contrast foregrounds and selected text to 4.5:1.
+ANSI black is preserved for terminal application backgrounds; xterm minimum
+contrast correction protects foreground text, including ANSI/256/true color.
+The settings preview displays the corrected black foreground.
+
+Solarized: Copyright (c) 2011 Ethan Schoonover. MIT.
+https://github.com/altercation/solarized
+Source: https://ethanschoonover.com/solarized/ (published sixteen-color palette).
+License: terminal-solarized-LICENSE
+
+Tokyo Night: folke and contributors. Apache-2.0.
+https://github.com/folke/tokyonight.nvim/tree/main/extras/windows_terminal
+Sources: tokyonight_night.json, tokyonight_day.json.
+Modifications: normalized terminal fields and foreground/selection contrast.
+License: terminal-tokyonight-LICENSE
+
+Catppuccin palette 1.8.0: Catppuccin authors. MIT.
+https://github.com/catppuccin/palette/blob/main/palette.json
+Sources: Latte / Mocha base, text, surface2 and ansiColors.
+License: terminal-catppuccin-LICENSE
+
+Gruvbox: original palette by morhetz; terminal mapping from gruvbox.nvim, NpX and contributors. MIT.
+https://github.com/ellisonleao/gruvbox.nvim/blob/main/lua/gruvbox.lua
+Sources: default-contrast light and dark terminal mappings and Visual selection.
+License: terminal-gruvbox-LICENSE
+
+Ayu: Ike Kurghinyan and contributors. MIT.
+https://github.com/ayu-theme/vscode-ayu
+Sources: ayu-light-unbordered.json and ayu-dark-unbordered.json terminal colors;
+translucent foreground and selection values are flattened onto the terminal background.
+License: terminal-ayu-LICENSE
+
+Only palette data and notices are bundled. No upstream plugins, images,
+editors or extra fonts are included. All palettes work offline.

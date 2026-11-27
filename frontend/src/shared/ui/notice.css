@@ -1,0 +1,4 @@
+[data-toast-id] {
+  width: fit-content;
+  max-width: min(100%, calc(var(--spacing-10) * 10));
+}

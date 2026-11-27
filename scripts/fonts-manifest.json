@@ -1,0 +1,71 @@
+{
+  "tool": "fonttools[woff]==4.62.1",
+  "inputs": [
+    {
+      "file": "InterVariable.woff2",
+      "url": "https://raw.githubusercontent.com/rsms/inter/v4.1/docs/font-files/InterVariable.woff2",
+      "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
+    },
+    {
+      "file": "google-sans-code.zip",
+      "url": "https://github.com/googlefonts/googlesans-code/releases/download/v7.001/GoogleSansCode-v7.001.zip",
+      "sha256": "eebba2a438882396e8530cad6d6cb80182b0afb6e9e0ad07b7340359a53ba2e9"
+    },
+    {
+      "file": "maple-cn.zip",
+      "url": "https://github.com/subframe7536/maple-font/releases/download/v7.9/MapleMono-CN-unhinted.zip",
+      "sha256": "d41cb72721e99cfe4fbd1a7b0f182a013457de46aa612018f924dd024699d3b9"
+    }
+  ],
+  "outputs": {
+    "inter": {
+      "bytes": 352240,
+      "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3",
+      "characters": 2852,
+      "widthsEm": {
+        "0": 0.630859375,
+        "A": 0.68994140625,
+        "W": 0.9853515625
+      },
+      "copyright": [
+        "Copyright 2016 The Inter Project Authors"
+      ]
+    },
+    "google-sans-code": {
+      "bytes": 90700,
+      "sha256": "b1185005ed22b7e700fc35476b5473e804a26b10f317ec0c5768404d949a8ed9",
+      "characters": 674,
+      "widthsEm": {
+        "0": 0.6,
+        "A": 0.6,
+        "W": 0.6
+      },
+      "copyright": [
+        "Copyright 2026 The Google Sans Code Project Authors (github.com/googlefonts/googlesans-code)"
+      ]
+    },
+    "maple-mono-cn": {
+      "bytes": 5393128,
+      "sha256": "dd57c29b2e2962088690fa716a7423f59b3f618bec74302f6a8f1695136cfea5",
+      "characters": 22731,
+      "widthsEm": {
+        "0": 0.6,
+        "A": 0.6,
+        "W": 0.6,
+        "中": 1.2,
+        "文": 1.2,
+        "繁": 1.2,
+        "體": 1.2,
+        "日": 1.2,
+        "本": 1.2,
+        "語": 1.2,
+        "あ": 1.2,
+        "い": 1.2,
+        "う": 1.2
+      },
+      "copyright": [
+        "Copyright 2022 The Maple Mono Project Authors (https://github.com/subframe7536/maple-font)"
+      ]
+    }
+  }
+}

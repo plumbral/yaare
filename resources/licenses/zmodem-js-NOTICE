@@ -1,0 +1,4 @@
+Yaare uses zmodem.js 0.1.10 under the included Apache-2.0 license.
+Yaare modifies its receive parser so ZFIN and the final OO sequence can
+arrive in a single input packet, including a split OO and trailing text.
+The reproducible change is recorded in patches/zmodem.js@0.1.10.patch.

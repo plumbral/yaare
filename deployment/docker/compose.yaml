@@ -1,0 +1,19 @@
+name: yaare
+services:
+  yaare:
+    image: ${YAARE_IMAGE:-ghcr.io/plumbral/yaare:latest}
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:rw,nosuid,nodev,noexec,size=128m,mode=1777"]
+    ports: ["127.0.0.1:${YAARE_PORT:-4180}:4180"]
+    environment:
+      YAARE_ORIGIN: ${YAARE_ORIGIN:-http://127.0.0.1:${YAARE_PORT:-4180}}
+    volumes:
+      - yaare-data:/data
+      - yaare-keys:/keys
+volumes:
+  yaare-data:
+  yaare-keys:

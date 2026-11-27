@@ -1,0 +1,11 @@
+[data-host-column-options] li button[aria-pressed]:not([data-host-column-visibility])::before {
+  inline-size: var(--spacing-0-5);
+  block-size: var(--spacing-0-5);
+  translate: calc(-1 * var(--spacing-0-5));
+  box-shadow:
+    0 calc(-1 * var(--spacing-1)) currentColor,
+    0 var(--spacing-1) currentColor,
+    var(--spacing-1) 0 currentColor,
+    var(--spacing-1) calc(-1 * var(--spacing-1)) currentColor,
+    var(--spacing-1) var(--spacing-1) currentColor;
+}

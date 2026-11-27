@@ -1,0 +1,20 @@
+services:
+  web:
+    image: debian:12-slim
+    user: "10001:10001"
+    environment:
+      HOME: /tmp
+      SSH_AUTH_SOCK: /run/yaare-agent/socket
+    ports:
+      - "127.0.0.1::4180"
+    volumes:
+      - agent:/run/yaare-agent:ro
+    command: ["sleep", "infinity"]
+  peer:
+    image: "${YAARE_TEST_SSH_IMAGE:?set by the Go integration test}"
+    pull_policy: never
+    volumes:
+      - agent:/run/yaare-agent
+    command: ["sleep", "infinity"]
+volumes:
+  agent: {}

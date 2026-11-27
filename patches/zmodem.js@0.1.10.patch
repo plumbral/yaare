@@ -1,0 +1,55 @@
+diff --git a/src/zsession.js b/src/zsession.js
+index 5f0b8f9d8afa6fba0acd6dd0477afa186f7aad9a..16ddce940f4c7f7d23d3228b5b6440002fdfe4ae 100644
+--- a/src/zsession.js
++++ b/src/zsession.js
+@@ -213,6 +213,8 @@ Zmodem.Session = class ZmodemSession extends _Eventer {
+      */
+     has_ended() { return this._has_ended() }
+ 
++    get_pending_input() { return this._input_buffer.slice(0); }
++
+     /**
+      * Consumes an array of octets as ZMODEM session input.
+      *
+@@ -545,27 +547,22 @@ Zmodem.Session.Receive = class ZmodemReceiveSession extends Zmodem.Session {
+     }
+ 
+     _consume_first() {
+-        if (this._got_ZFIN) {
+-            if (this._input_buffer.length < 2) return;
+-
+-            //if it’s OO, then set this._bytes_after_OO
+-            if (Zmodem.ZMLIB.find_subarray(this._input_buffer, OVER_AND_OUT) === 0) {
+-
+-                //This doubles as an indication that the session has ended.
+-                //We need to set this right away so that handlers like
+-                //"session_end" will have access to it.
+-                this._bytes_after_OO = _trim_OO(this._bytes_being_consumed.slice(0));
+-                this._on_session_end();
+-
+-                return;
+-            }
+-            else {
+-                throw( "PROTOCOL: Only thing after ZFIN should be “OO” (79,79), not: " + this._input_buffer.join() );
+-            }
+-        }
+-
+         var parsed;
+         do {
++            if (this._got_ZFIN) {
++                if (this._input_buffer.length < 2) return;
++                if (Zmodem.ZMLIB.find_subarray(this._input_buffer, OVER_AND_OUT) === 0) {
++                    this._bytes_after_OO = this._input_buffer.slice(OVER_AND_OUT.length);
++                    this._input_buffer.length = 0;
++                    this._on_session_end();
++
++                    return;
++                }
++                else {
++                    throw( "PROTOCOL: Only thing after ZFIN should be “OO” (79,79), not: " + this._input_buffer.join() );
++                }
++            }
++
+             if (this._next_subpacket_handler) {
+                 parsed = this._parse_and_consume_subpacket();
+             }

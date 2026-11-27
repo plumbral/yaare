@@ -1,0 +1,62 @@
+{
+  "name": "yaare",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "packageManager": "bun@1.4.4",
+  "scripts": {
+    "brand:generate": "bun scripts/generate-brand-assets.ts",
+    "theme:generate": "bun scripts/build-themes.ts",
+    "dev": "bun run brand:generate && mygo dev",
+    "dev:web": "bun run brand:generate && bun run theme:generate && vite --config frontend/vite.config.ts",
+    "generate": "bun scripts/generate-i18n-index.ts && mygo generate",
+    "typecheck": "tsc --noEmit -p frontend/tsconfig.json",
+    "build:browser": "bun run brand:generate && bun run theme:generate && bun run typecheck && vite build --config frontend/vite.config.ts --mode browser --outDir ../build/browser",
+    "build:web": "bun run brand:generate && bun run theme:generate && bun run typecheck && vite build --config frontend/vite.config.ts && go run scripts/pack-frontend.go",
+    "build": "bun run brand:generate && mygo build -skip-installer",
+    "package": "bun run brand:generate && mygo build",
+    "preview": "vite preview --config frontend/vite.config.ts --host 127.0.0.1",
+    "doctor": "mygo doctor"
+  },
+  "dependencies": {
+    "@astryxdesign/core": "0.7.16",
+    "@astryxdesign/theme-neutral": "0.7.16",
+    "@base-ui/react": "1.9.0",
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/legacy-modes": "^6.5.5",
+    "@codemirror/merge": "^6.12.3",
+    "@codemirror/search": "^6.7.2",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.15",
+    "@heroicons/react": "2.2.0",
+    "@lezer/highlight": "^1.2.5",
+    "@novnc/novnc": "1.7.0",
+    "@stylexjs/stylex": "0.19.0",
+    "@tanstack/react-virtual": "3.14.26",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/addon-search": "0.16.0",
+    "@xterm/addon-unicode-graphemes": "0.4.0",
+    "@xterm/addon-webgl": "0.19.0",
+    "@xterm/xterm": "6.0.0",
+    "mygo-runtime": "0.10.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zmodem.js": "0.1.10"
+  },
+  "devDependencies": {
+    "@astryxdesign/cli": "0.7.16",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "linkedom": "0.18.15",
+    "mygo-cli": "0.10.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.8"
+  },
+  "patchedDependencies": {
+    "zmodem.js@0.1.10": "patches/zmodem.js@0.1.10.patch"
+  }
+}

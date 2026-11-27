@@ -1,0 +1,47 @@
+Several bundled dependencies share an upstream license text. The filenames
+below refer to the notices distributed alongside this file.
+
+Go runtime and standard library; golang.org/x/crypto, x/image, x/mod, x/net,
+x/sys, x/term and x/text
+    golang-org-x-image-LICENSE and golang-PATENTS
+
+github.com/kr/fs
+    github-com-remyoudompheng-bigfft-LICENSE (identical Go Authors notice)
+
+github.com/egoist/mygo and the mygo-runtime JavaScript package
+    mygo-LICENSE
+
+@base-ui/react and @base-ui/utils
+    base-ui-LICENSE
+
+@codemirror/streamparser
+    codemirror-lezer-LICENSES.txt (same notice as @codemirror/state)
+
+@formatjs/fast-memoize, @formatjs/icu-messageformat-parser and
+@formatjs/icu-skeleton-parser
+    formatjs-LICENSE
+
+@tanstack/react-virtual and @tanstack/virtual-core
+    tanstack-virtual-LICENSE
+
+React scheduler
+    react-LICENSE
+
+crc-32
+    crc32.js (C) 2014-present SheetJS -- http://sheetjs.com
+    crc-32-LICENSE
+
+xterm.js and its addons
+    Copyright (c) 2014-2024 The xterm.js authors. All rights reserved.
+    Copyright (c) 2012-2013, Christopher Jeffrey (MIT License)
+    Originally forked, with permission, from Fabrice Bellard's javascript
+    vt100 for jslinux (http://bellard.org/jslinux/), Copyright (c) 2011
+    Fabrice Bellard. See xterm-LICENSE and the individual addon licenses.
+    Additional credits for the grapheme table and trie implementation are
+    in xterm-unicode-third-party-NOTICE.txt.
+
+@novnc/novnc 1.7.0
+    The noVNC core sources used in the frontend are available in the
+    upstream source package:
+    https://registry.npmjs.org/@novnc/novnc/-/novnc-1.7.0.tgz
+    See novnc-LICENSE, novnc-MPL-2.0 and the accompanying noVNC notices.

@@ -1,0 +1,281 @@
+name: Release
+
+on:
+  push:
+    tags: ['v[0-9]*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      number: ${{ steps.tag.outputs.number }}
+      revision: ${{ steps.tag.outputs.revision }}
+      image: ${{ steps.tag.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check release tag and notes
+        id: tag
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          n='(0|[1-9][0-9]*)'
+          pre='(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)'
+          pattern="^${n}\.${n}\.${n}(-${pre}(\.${pre})*)?$"
+          [[ "$version" =~ $pattern && ${#version} -le 128 ]] || { echo "::error::Expected vX.Y.Z or a prerelease such as vX.Y.Z-rc.1"; exit 1; }
+          grep -q '[^[:space:]]' "docs/releases/$GITHUB_REF_NAME.md" || { echo "::error::Missing release notes for $GITHUB_REF_NAME"; exit 1; }
+          echo "number=$version" >> "$GITHUB_OUTPUT"
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+  package:
+    needs: version
+    name: Package ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: macOS, runner: macos-latest, targets: 'darwin/universal' }
+          - { platform: Windows, runner: windows-latest, targets: 'windows/amd64,windows/arm64' }
+          - { platform: Linux, runner: ubuntu-latest, targets: 'linux/amd64,linux/arm64' }
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Build release packages
+        env:
+          TARGETS: ${{ matrix.targets }}
+        run: |
+          YAARE_RELEASE_VERSION="${GITHUB_REF_NAME#v}" bun run package -platform "$TARGETS"
+          mkdir staging
+      - name: Check the disk image and its contents
+        if: matrix.platform == 'macOS'
+        working-directory: build/darwin-universal
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          dmg="yaare-$version.dmg"
+          hdiutil verify "$dmg"
+          volume=$(mktemp -d "$RUNNER_TEMP/yaare-dmg.XXXXXX")
+          hdiutil attach -readonly -nobrowse -noautoopen -mountpoint "$volume" "$dmg"
+          trap 'hdiutil detach "$volume"' EXIT
+          app="$volume/Yaare.app"
+          test "$(readlink "$volume/Applications")" = /Applications
+          test "$(plutil -extract CFBundleShortVersionString raw -o - "$app/Contents/Info.plist")" = "$version"
+          lipo "$app/Contents/MacOS/Yaare" -verify_arch arm64 x86_64
+          codesign --verify --deep --strict "$app"
+          cp "$dmg" ../../staging/
+      - name: Check Windows installers
+        if: matrix.platform == 'Windows'
+        run: |
+          for arch in amd64 arm64; do
+            installer="build/windows-$arch/yaare-setup-${GITHUB_REF_NAME#v}-$arch.exe"
+            7z t "$installer"
+            binary="$RUNNER_TEMP/yaare-$arch.exe"
+            7z x -so "$installer" Yaare.exe > "$binary"
+            go version -m "$binary" | grep -F "GOARCH=$arch"
+            cp "$installer" staging/
+          done
+      - name: Check Linux packages
+        if: matrix.platform == 'Linux'
+        run: |
+          if ! command -v rpm >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends rpm
+          fi
+          for arch in amd64 arm64; do
+            dir="build/linux-$arch"
+            deb=("$dir"/*.deb)
+            rpm=("$dir"/*.rpm)
+            archive="$dir/yaare-${GITHUB_REF_NAME#v}-linux-$arch.tar.gz"
+            test "$(dpkg-deb -f "${deb[0]}" Architecture)" = "$arch"
+            rpm_arch=x86_64
+            if [[ $arch == arm64 ]]; then rpm_arch=aarch64; fi
+            test "$(rpm -qp --qf '%{ARCH}' "${rpm[0]}")" = "$rpm_arch"
+            unpacked=$(mktemp -d "$RUNNER_TEMP/yaare-$arch.XXXXXX")
+            tar -xzf "$archive" -C "$unpacked" yaare
+            test -x "$unpacked/yaare"
+            go version -m "$unpacked/yaare" | grep -F "GOARCH=$arch"
+            cp "${deb[0]}" "${rpm[0]}" "$archive" staging/
+          done
+          cmp build/linux-amd64/install.sh build/linux-arm64/install.sh
+          sh -n build/linux-amd64/install.sh
+          cp build/linux-amd64/install.sh staging/
+          (cd staging && sh install.sh && sh install.sh --uninstall)
+      - name: Record package checksums
+        working-directory: staging
+        run: |
+          files=(*)
+          if [[ $RUNNER_OS == macOS ]]; then
+            shasum -b -a 256 "${files[@]}" > macOS.sums
+          else
+            sha256sum --binary "${files[@]}" > "$RUNNER_OS.sums"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.platform }}
+          path: staging/
+          if-no-files-found: error
+          compression-level: 0
+
+  container:
+    name: Docker linux/${{ matrix.arch }}
+    if: vars.YAARE_RELEASE_DOCKER == 'true'
+    needs: version
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ${{ needs.version.outputs.image }}
+      YAARE_TEST_ARCH: ${{ matrix.arch }}
+      YAARE_TEST_VERSION: ${{ needs.version.outputs.number }}
+      REVISION: ${{ needs.version.outputs.revision }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Build by digest and test the published bytes on their native architecture
+        shell: bash
+        run: |
+          docker buildx build --platform "linux/$YAARE_TEST_ARCH" -f deployment/docker/Dockerfile \
+            --build-arg "YAARE_RELEASE_VERSION=$YAARE_TEST_VERSION" \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.version=$YAARE_TEST_VERSION" \
+            --label "org.opencontainers.image.revision=$REVISION" \
+            --output "type=image,name=$IMAGE,push-by-digest=true,name-canonical=true,push=true,oci-mediatypes=true" \
+            --provenance=false --metadata-file "$RUNNER_TEMP/image.json" .
+          digest=$(jq -er '."containerimage.digest" | select(test("^sha256:[0-9a-f]{64}$"))' "$RUNNER_TEMP/image.json")
+          export YAARE_TEST_IMAGE="$IMAGE@$digest"
+          docker pull "$YAARE_TEST_IMAGE"
+          go test -count=1 -v ./internal/webserver -run '^(TestReleaseCompose|TestInitializeRetriesAndPreservesOwner|TestConcurrentInstanceInitialization)$'
+          echo "$digest" > "$RUNNER_TEMP/$YAARE_TEST_ARCH.digest"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docker-${{ matrix.arch }}
+          path: ${{ runner.temp }}/${{ matrix.arch }}.digest
+          if-no-files-found: error
+
+  release_image:
+    needs: [version, package, container]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: docker-*
+          merge-multiple: true
+          path: digests
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Publish the versioned image and pin the standalone Compose file
+        env:
+          IMAGE: ${{ needs.version.outputs.image }}
+          VERSION: ${{ needs.version.outputs.number }}
+          REVISION: ${{ needs.version.outputs.revision }}
+        run: |
+          awk '/^```yaml$/ { show=1; next } show && /^```$/ { exit } show' deployment/docker/README.md |
+            diff -u deployment/docker/compose.yaml -
+          mkdir installers
+          bash deployment/docker/release-image.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-compose
+          path: installers/compose.yaml
+          if-no-files-found: error
+
+  release:
+    needs: [package, release_image]
+    if: ${{ !cancelled() && needs.package.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installers-*
+          merge-multiple: true
+          path: installers
+      - uses: actions/download-artifact@v4
+        if: needs.release_image.result == 'success'
+        with:
+          name: release-compose
+          path: installers
+      - name: Verify checksums and prepare the release draft
+        shell: bash
+        working-directory: installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          release=$(gh release view "$GITHUB_REF_NAME" --json isDraft,assets) || release=''
+          if [[ ! -f compose.yaml && -n "$release" ]] && jq -e 'any(.assets[]; .name == "compose.yaml")' <<< "$release" >/dev/null; then
+            gh release download "$GITHUB_REF_NAME" --pattern compose.yaml
+          fi
+          cat Windows.sums Linux.sums macOS.sums > release.sums
+          if [[ -f compose.yaml ]]; then sha256sum --binary compose.yaml >> release.sums; fi
+          LC_ALL=C sort -k2 release.sums > SHA256SUMS
+          sha256sum --strict --check SHA256SUMS
+          mapfile -t assets < <(cut -c67- SHA256SUMS)
+          assets+=(SHA256SUMS)
+          title="Yaare ${GITHUB_REF_NAME#v}"
+          notes="../docs/releases/$GITHUB_REF_NAME.md"
+          if [[ -n "$release" ]]; then
+            if [[ $(jq -r .isDraft <<< "$release") == false ]]; then
+              published=$(jq -r '.assets[].name' <<< "$release")
+              for asset in "${assets[@]}"; do
+                grep -Fxq -- "$asset" <<< "$published" || { echo "::error::Published release is missing $asset"; exit 1; }
+              done
+              exit 0
+            fi
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+            gh release edit "$GITHUB_REF_NAME" --title "$title" --notes-file "$notes"
+          else
+            flags=(--draft --verify-tag)
+            if [[ "$GITHUB_REF_NAME" == *-* ]]; then flags+=(--prerelease); fi
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" "${flags[@]}" --title "$title" --notes-file "$notes"
+          fi
