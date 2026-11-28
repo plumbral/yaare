@@ -5,6 +5,18 @@ import type { Language } from '../i18n/locale'
 
 export const desktopAvailable = isMyGo
 
+export function openWebLink(uri: string): void {
+  let url: URL
+  try {
+    url = new URL(uri)
+  } catch {
+    return
+  }
+  if (url.protocol === 'http:' || url.protocol === 'https:') {
+    window.open(url.href, '_blank', 'noopener,noreferrer')
+  }
+}
+
 export function supportsDesktopRecovery(hasBackend = desktopAvailable(), mode = import.meta.env?.MODE) {
   return hasBackend && mode !== 'browser'
 }

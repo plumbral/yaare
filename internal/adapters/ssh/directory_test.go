@@ -3,15 +3,14 @@ package sshclient
 import (
 	"bytes"
 	"context"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TestDirectoryFramesFragmentationBoundsAndEndpoint(t *testing.T) {
-	if !directoryIntegrationAllowed([]byte("SSH-2.0-OpenSSH_9.6p1 Ubuntu")) || directoryIntegrationAllowed([]byte("SSH-2.0-OpenSSH_for_Windows_9.5")) || directoryIntegrationAllowed([]byte("SSH-2.0-custom-server")) {
-		t.Fatal("unsupported server startup changed")
-	}
 	frame := "\x1b]777;yaare;attempt-one;/tmp/%E4%B8%AD%E6%96%87%20%27%24%28literal%29\x07"
 	for split := 0; split <= len(frame); split++ {
 		d := directoryDecoder{token: "attempt-one", host: "example.test"}
@@ -44,6 +43,93 @@ func TestDirectoryFramesFragmentationBoundsAndEndpoint(t *testing.T) {
 type directoryInput struct{ bytes.Buffer }
 
 func (*directoryInput) Close() error { return nil }
+
+func TestPersistentDirectoryFramesRequireVerifiedNonceAndTag(t *testing.T) {
+	nonce, tag := strings.Repeat("ab", 16), strings.Repeat("cd", 32)
+	frame := func(nonce, tag, path string) []byte {
+		return []byte("\x1b]777;yaare;bash;" + nonce + ";" + tag + ";" + path + "\a")
+	}
+	d := directoryDecoder{}
+	if got := d.feed(frame(nonce, tag, "/first"), 4); got != nil || d.persistent == nil || d.persistent.epoch != 4 {
+		t.Fatal("installed hook reported readiness before verification", got)
+	}
+	if got := d.feed(frame(nonce, tag, "/new%20path"), 5); got != nil || d.persistent.path != "/new path" || d.persistent.epoch != 5 {
+		t.Fatal("newer prompt lost during verification", got)
+	}
+	d.persistent.verified = true
+	for _, raw := range [][]byte{frame(strings.Repeat("da", 16), tag, "/x"), frame(nonce, strings.Repeat("ff", 32), "/x"), frame(nonce, tag, "/tmp/%07")} {
+		if got := d.feed(raw, 5); got != nil {
+			t.Fatal("accepted unverified directory", got)
+		}
+	}
+	if got := d.feed(frame(nonce, tag, "/verified"), 5); got == nil || !got.Ready || !got.Integrated || got.Path != "/verified" {
+		t.Fatal("missing verified prompt", got)
+	}
+}
+
+type hookInput chan string
+
+func (input hookInput) Write(p []byte) (int, error) { input <- string(p); return len(p), nil }
+func (hookInput) Close() error                      { return nil }
+
+func TestEnableShellIntegrationWaitsForAcknowledgementAndRunsOnce(t *testing.T) {
+	s := NewSession(t.Context(), nil, func(Event) error { return nil })
+	defer s.Close()
+	input := make(hookInput, 4)
+	s.connected, s.stdin, s.directoryDecoder.token = true, input, "attempt01"
+	request, cancel := context.WithCancel(t.Context())
+	first := make(chan error, 1)
+	go func() { first <- s.EnableShellIntegration(request) }()
+	if cmd := waitBrowseSignal(t, input); cmd != directoryHookCommand("attempt01") {
+		t.Fatalf("unexpected install command %q", cmd)
+	}
+	cancel()
+	if err := waitBrowseSignal(t, first); err != context.Canceled {
+		t.Fatalf("cancelled request: %v", err)
+	}
+	started := make(chan error, 2)
+	for range 2 {
+		go func() { started <- s.EnableShellIntegration(t.Context()) }()
+	}
+	s.reportDirectory(*s.directoryDecoder.feed([]byte("\x1b]7;file:///test\a"), 1), 1)
+	select {
+	case err := <-started:
+		t.Fatalf("public OSC 7 acknowledged installation: %v", err)
+	default:
+	}
+	s.reportDirectory(*s.directoryDecoder.feed([]byte("\x1b]777;yaare;attempt01;/test\a"), 1), 1)
+	for range 2 {
+		if err := waitBrowseSignal(t, started); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s.directoryBusy()
+	if err := s.EnableShellIntegration(t.Context()); err != nil || len(input) != 0 {
+		t.Fatalf("duplicate install after prompt became busy: %v, writes: %d", err, len(input))
+	}
+	osc := s.directoryDecoder.feed([]byte("\x1b]7;file:///test/other\a"), 2)
+	if osc == nil || !osc.Integrated || osc.Ready {
+		t.Fatal("unverified directory report changed integration status", osc)
+	}
+}
+
+func TestDirectoryHookPreservesBashPromptCommands(t *testing.T) {
+	bash, err := exec.LookPath("bash")
+	if err != nil || exec.CommandContext(t.Context(), bash, "--version").Run() != nil {
+		t.Skip("requires Bash")
+	}
+	hook := strings.TrimSuffix(directoryHookCommand("123abc"), "\r")
+	for _, setup := range []string{`PROMPT_COMMAND='printf before'`, `PROMPT_COMMAND=('printf be' 'printf fore')`} {
+		script := setup + "\n" + hook + "\n" + hook + "\n" + `cd / && for entry in "${PROMPT_COMMAND[@]}"; do eval "$entry"; done`
+		cmd := exec.CommandContext(t.Context(), bash, "--noprofile", "--norc", "-s")
+		cmd.Stdin = strings.NewReader(script)
+		cmd.Env = append(os.Environ(), "BASH_ENV=")
+		out, err := cmd.CombinedOutput()
+		if err != nil || string(out) != "before\x1b]777;yaare;123abc;/\a" {
+			t.Fatalf("%s: %q, %v", setup, out, err)
+		}
+	}
+}
 
 func TestDirectoryFragmentStartedBeforeInputCannotRestoreReady(t *testing.T) {
 	s := NewSession(context.Background(), nil, func(Event) error { return nil })

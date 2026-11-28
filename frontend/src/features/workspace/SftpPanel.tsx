@@ -49,7 +49,6 @@ import {
   ArrowUpIcon,
   ArrowLeftIcon,ArrowRightIcon,
   ArrowPathIcon,
-  ArrowRightOnRectangleIcon,
   EllipsisHorizontalIcon,
   EyeIcon,
   MagnifyingGlassIcon,
@@ -75,8 +74,9 @@ import {
   type LocalFolder,
 } from '../../shared/bridge/files'
 import type { Session } from './mockGateway'
-import { connectionLabels, reconnectWaitMessage } from './sessionConnection'
-import ReconnectActions from './ReconnectActions'
+import { connectionLabels } from './sessionConnection'
+import { resolveSessionConnectionPrompt } from './sessionConnectionPrompt'
+import ConnectionPromptActions from './ConnectionPromptActions'
 import type { ReconnectWait } from '../connections/sshReconnect'
 import { transferSize as fileSize } from './transferModel'
 
@@ -109,13 +109,14 @@ export default memo(function SftpPanel({
   onCancelConnection,
   onDirectorySync,
   onEnterDirectory,
+  onShellIntegration,
   onComparisonText,
   view,onStatus,taskSource,localRevision=0,onLocalChanged,onFullWorkspace,
   onFileGuard,onProtection,sessionLabel,
 }: {
   session?: Session
   sessionLabel?:(id:string)=>string
-  live?: { attempt: number; phase: string; message?: string; retry?: ReconnectWait; automatic?: boolean; directory?: {path:string;ready:boolean} }
+  live?: { attempt: number; phase: string; message?: string; retry?: ReconnectWait; automatic?: boolean; directory?: {path:string;ready:boolean;integrated?:boolean} }
   path: string
   onPath: (path: string) => void
   gateway?: typeof fileGateway
@@ -127,6 +128,7 @@ export default memo(function SftpPanel({
   onCancelConnection?:()=>void
   onDirectorySync?:(enabled:boolean)=>void
   onEnterDirectory?:(path:string)=>Promise<void>
+  onShellIntegration?:()=>void
   onComparisonText?:(id:string,relative:string)=>void
   view?:'remote'|'local';onStatus?:(side:'remote'|'local',summary:string,error:string)=>void;taskSource?:TaskSource
   localRevision?:number;onLocalChanged?:()=>void;onFullWorkspace?:()=>void
@@ -222,13 +224,11 @@ export default memo(function SftpPanel({
   const entries = loaded?.entries ?? emptyEntries
   const actionScope = useRef(treeScope)
   const canBrowse = native && (side === 'local' ? !!folder : connected)
-  const connecting = live?.phase === 'connecting' || live?.phase === 'hostkey' || live?.phase === 'authentication'
-  const remoteStatus = native ? connectionLabels[live?.retry ? 'reconnecting' : session?.connection?.status ?? 'idle'] : tr("桌面服务暂不可用")
-  const remoteDetail = live?.retry ? reconnectWaitMessage(live.retry, localizeMessage(live.message ?? ''))
-    : live?.phase === 'hostkey' ? tr("等待指纹确认")
-    : live?.phase === 'authentication' ? tr("等待认证")
-    : (connecting || live?.phase === 'failed') && live?.message ? localizeMessage(live.message)
-    : connecting ? undefined : tr("连接 SSH 后即可浏览远程目录。")
+  const remotePrompt = side === 'remote' && native && !canBrowse
+    ? resolveSessionConnectionPrompt(session?.connection?.status, live, onConnect, onCancelConnection)
+    : undefined
+  const remoteStatus = native ? remotePrompt?.label ?? connectionLabels.connected : tr("桌面服务暂不可用")
+  const remoteDetail = remotePrompt?.message || (!remotePrompt?.busy ? tr("连接 SSH 后即可浏览远程目录。") : undefined)
   useEffect(()=>{
     if(!native||!isMyGo())return
     return onFileDrop(event=>{
@@ -431,7 +431,7 @@ export default memo(function SftpPanel({
     fileActions.transfer,
     {label:side==='remote'?tr("使用 SCP 下载所选"):tr("使用 SCP 上传所选"),isDisabled:!connected||!selected.size,onClick:()=>void enqueueGroups(groupsFor(selectedItems),side==='remote'?'local':'remote',undefined,'scp')},
     ...(side==='remote'?[{label:tr("复制到另一台服务器…"),isDisabled:!connected||!selected.size,onClick:()=>{setRemoteCopySources(groupsFor(selectedItems));setRemoteCopyOpen(true)}}]:[]),
-    ...(side==='remote'&&onEnterDirectory?[{label:tr("在终端进入此目录"),isDisabled:!connected||!live?.directory?.ready||selectedItems.length>1,onClick:()=>{const target=single?(single.entry.directory&&!single.entry.link?single.path:single.parent):path;void onEnterDirectory(target).catch(cause=>setError(cause instanceof Error?cause.message:tr("终端目录切换失败，请重试。")))}}]:[]),
+    ...(side==='remote'&&onEnterDirectory?[{label:tr("在终端进入此目录"),isDisabled:!connected||!!live?.directory?.integrated&&!live.directory.ready||selectedItems.length>1,onClick:()=>{const target=single?(single.entry.directory&&!single.entry.link?single.path:single.parent):path;void onEnterDirectory(target).catch(cause=>setError(cause instanceof Error?cause.message:tr("终端目录切换失败，请重试。")))}}]:[]),
     {type:'divider'},
     {label:tr("复制文件名"),isDisabled:!selectedItems.length,onClick:()=>void copyClipboard(selectedItems.map(item=>item.entry.name).join('\n'),tr("已复制文件名"))},
     fileActions.copyPath,
@@ -521,7 +521,10 @@ export default memo(function SftpPanel({
               <IconButton id={panelId+'-wrap'} label={tr("文件名换行")} tooltip={tr("文件名换行")} aria-pressed={wrapNames} size="md" variant={wrapNames?'secondary':'ghost'} icon={<Icon icon={WrapTextIcon} size="sm"/>} onClick={()=>updateViewPrefs(previous=>({...previous,wrapNames:!previous.wrapNames}))}/>
             </Stack>
             <DirectoryBreadcrumbs path={loadedScope===treeScope?loadedRoot:currentPath} rootLabel={side==='local'?(folder?.name??tr("本地目录")):tr("根目录")} label={side==='local'?tr("本地目录层级"):tr("远程目录层级")} disabled={!canBrowse||busy} onNavigate={target=>{void load(target)}}/>
-            {side==='remote'&&connected&&directorySync&&!live?.directory?.path&&<Text type="supporting" color="secondary" role="status">{tr("等待终端报告目录；此终端可能尚未支持自动联动。")}</Text>}
+            {side==='remote'&&connected&&directorySync&&!live?.directory?.path&&<Stack direction="horizontal" wrap="wrap" gap={2} align="center">
+              <Text type="supporting" color="secondary" role="status">{tr("等待终端报告目录；此终端可能尚未支持自动联动。")}</Text>
+              {onShellIntegration&&<Button size="sm" variant="ghost" label={tr("Bash 终端集成…")} onClick={onShellIntegration}/>}
+            </Stack>}
             {searchOpen&&<TextInput id={panelId+'-search'} label={tr("筛选已加载目录")} isLabelHidden size="md" type="search" placeholder={tr("筛选已加载目录…")} startIcon="search" value={query} onChange={setQuery} autoComplete="off" hasClear/>}
           </>}
         </Stack></LayoutHeader>}
@@ -551,11 +554,9 @@ export default memo(function SftpPanel({
                     <EmptyState
                       title={remoteStatus}
                       description={native && remoteDetail !== remoteStatus ? remoteDetail : undefined}
-                      icon={connecting || live?.retry ? <Spinner size="lg"/> : <Icon icon={ServerStackIcon} size="lg"/>}
-                      actions={native && session && ((live?.retry || connecting && live?.automatic)
-                        ? onCancelConnection && <ReconnectActions waiting={live.retry} onStop={onCancelConnection} onRetry={onConnect}/>
-                        : connecting ? onCancelConnection && <Button label={tr("取消连接")} size="md" variant="secondary" onClick={onCancelConnection}/>
-                        : onConnect && <Button label={tr("立即连接")} size="md" variant="primary" icon={<Icon icon={ArrowRightOnRectangleIcon} size="sm"/>} onClick={onConnect}/>)}
+                      icon={remotePrompt?.busy ? <Spinner size="lg"/> : <Icon icon={ServerStackIcon} size="lg"/>}
+                      actions={session && remotePrompt && remotePrompt.actions.length > 0 &&
+                        <ConnectionPromptActions actions={remotePrompt.actions} connectLabel={tr("立即连接")}/>}
                       style={{marginBlock:'auto',maxInlineSize:'100%',overflowWrap:'anywhere'}}/>
                   </Stack>
                   : loadedRoot&&loadedScope===treeScope?<SftpFileTree key={treeScope+loadedRoot} scope={treeScope} root={loadedRoot} entries={entries} hidden={showHidden} query={deferredQuery} sort={sort} onSort={next=>updateViewPrefs({sort:next})} wrapNames={wrapNames} showPermissions={side==='remote'&&showPermissions} showOwner={side==='remote'&&showOwner} columnWidths={columnWidths} onColumnWidthsChange={next=>updateViewPrefs({columnWidths:next})} onShowHidden={()=>updateViewPrefs({showHidden:true})} onClearQuery={()=>setQuery('')} readDirectory={readDirectory} onSelection={receiveSelection} onError={setError} onRename={()=>beginAction('rename')} onDelete={beginDelete} menu={contextItems} onOpen={node=>{if(node.entry.directory)void load(node.path);else if(side==='remote')onEdit?.(node.path)}} onDrag={dragStart} onDrop={(e,p)=>drop(e,side,p)}/>:<Stack padding={4}><Text type="supporting" color="secondary">{busy?tr("正在读取目录…"):tr("目录未能读取，请重试。")}</Text></Stack>}

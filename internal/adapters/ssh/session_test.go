@@ -137,6 +137,37 @@ func (r *runResult) ended(t *testing.T) {
 	}
 }
 func (r *runResult) text() string { r.mu.Lock(); defer r.mu.Unlock(); return r.output.String() }
+
+func TestAuthenticationBannerPrecedesLoginAndSurvivesRejectedAuthentication(t *testing.T) {
+	server := fixture(t)
+	server.SetBanner("欢迎\npolicy\t✦\r\n\x1b[2J\a\rnext\n")
+	const expected = "欢迎\r\npolicy\t✦\r\n�[2J�\r\nnext\r\n"
+	trust := store(t)
+	for _, accepted := range []bool{true, false} {
+		cfg := config(server.Address())
+		if !accepted {
+			cfg.Password = []byte("wrong")
+		}
+		run := begin(t, cfg, trust)
+		if accepted {
+			challenge := run.wait(t, "hostkey").Challenge
+			run.session.Resolve(challenge.ID, "remember")
+			run.wait(t, "connected")
+			eventually(t, func() bool { return strings.Contains(run.text(), sshfixture.Greeting) })
+			if out := run.text(); out != expected+sshfixture.Greeting {
+				t.Fatalf("banner and login output out of order: %q", out)
+			}
+			run.session.Close()
+		} else {
+			run.wait(t, "failed")
+			if out := run.text(); out != expected {
+				t.Fatalf("banner lost during authentication: %q", out)
+			}
+		}
+		run.ended(t)
+	}
+}
+
 func eventually(t *testing.T, check func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)

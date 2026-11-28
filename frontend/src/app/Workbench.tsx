@@ -44,6 +44,8 @@ import { hostCopyActions, hostRowContextActions } from '../features/connections/
 import SessionTools, { type SessionToolsHandle } from './SessionTools'
 import { useIdentities } from '../features/connections/useIdentities'
 import type { TerminalController } from '../features/terminal/TerminalPane'
+import type { ShellOperation } from '../features/terminal/ShellIntegrationDialog'
+import type { SSHTransport } from '../shared/bridge/ssh'
 import TerminalSessionPane from '../features/workspace/TerminalSessionPane'
 import { createTerminalFocus } from '../features/terminal/terminalFocus'
 import type { TerminalTransport } from '../features/terminal/remoteOutput'
@@ -54,7 +56,7 @@ import type { FileCloseGuard, RegisterFileGuard } from '../features/workspace/fi
 import {fileGateway} from '../shared/bridge/files'
 import type { RemoteTextController } from '../features/workspace/RemoteTextWorkspace'
 import { useKeyReferences } from '../features/connections/useKeyReferences'
-import { useSSHSessions, type Credentials } from '../features/connections/useSSHSessions'
+import { usePaneSSH, useSSHSessions, type Credentials } from '../features/connections/useSSHSessions'
 import { defaultPreferences, readPreferences, savePreferences, normalizePreferences, stepTerminalFontSize, type Preferences } from '../features/workspace/preferences'
 import { desktopPreferences } from '../features/workspace/desktopPreferences'
 import { handleTerminalFontWheel } from '../features/terminal/terminalFontWheel'
@@ -70,6 +72,7 @@ import { useSavedWorkspace } from '../features/workspace/useSavedWorkspace'
 import {captureSessionLayout,restoreSessionLayout} from '../features/workspace/rememberWorkspace'
 import {useRememberWorkspace} from '../features/workspace/useRememberWorkspace'
 const ConfirmDelete = lazy(() => import('../shared/ui/ConfirmDelete'))
+const ShellIntegrationDialog = lazy(() => import('../features/terminal/ShellIntegrationDialog'))
 const RemoteTextWorkspace=lazy(()=>import('../features/workspace/RemoteTextWorkspace'))
 const SftpWorkspace=lazy(()=>import('../features/workspace/SftpWorkspace'))
 import { useApplicationUpdateRunner } from '../features/workspace/useApplicationUpdates'
@@ -119,6 +122,7 @@ export default function Workbench() {
   const [desktopLoaded,setDesktopLoaded]=useState<Record<string,boolean>>({})
   const [desktopViews,setDesktopViews]=useState<Record<string,boolean>>({})
   const [authTarget,setAuthTarget] = useState('')
+  const [integration, setIntegration] = useState<{ id: string; transport: SSHTransport; operation: ShellOperation } | null>(null)
   const sessionTools = useRef<SessionToolsHandle>(null)
   const promptedFailures = useRef(new WeakSet<object>())
   const [IdentityPanel,setIdentityPanel] = useState<typeof import('../features/connections/IdentityPanel').default|null>(null)
@@ -550,9 +554,10 @@ export default function Workbench() {
     if(!session||session.pending)return
     const entry=ssh.currentEntry(id)
     if(entry&&!['failed','disconnected'].includes(entry.phase))return
+    if (!routeAvailable(id, session.host)) return
     activateSession(id)
     if (entry?.retry) ssh.retryNow(id)
-    else if (routeAvailable(id, session.host)) startSavedSession(id,session.host)
+    else startSavedSession(id,session.host)
     requestFocus(id)
   }
   const toggleSessionConnection = (id:string) => {
@@ -769,12 +774,42 @@ export default function Workbench() {
       if(state.activeId===doc.sessionId)requestAnimationFrame(()=>document.getElementById('tab-files-'+doc.sessionId)?.focus({preventScroll:true}))
     }
   }
-  async function enterTerminalDirectory(id:string,path:string){
-    const entry=ssh.entries[id]
-    if(!entry||entry.phase!=='connected')throw Error(tr("SSH 连接已断开。"))
-    await entry.transport.changeDirectory(path)
-    if(runtimeLatest.current.activeId===id)showTerminal(id)
+  async function performShellOperation(id: string, transport: SSHTransport, operation: ShellOperation) {
+    const entry = ssh.currentEntry(id)
+    if (entry?.phase !== 'connected' || entry.transport !== transport) throw Error(tr('SSH 连接已断开。'))
+    if (operation.kind === 'directory') {
+      await transport.changeDirectory(operation.path)
+      if (runtimeLatest.current.activeId === id) showTerminal(id)
+    } else if (operation.kind === 'upload') {
+      await transport.startZmodemUpload?.()
+    }
   }
+  async function requestShellOperation(id: string, operation: ShellOperation) {
+    const entry = ssh.currentEntry(id)
+    if (entry?.phase !== 'connected') throw Error(tr('SSH 连接已断开。'))
+    if (operation.kind === 'manage' || !entry.directory?.integrated) {
+      activateSession(id)
+      showTerminal(id, false)
+      setIntegration({ id, transport: entry.transport, operation })
+      return
+    }
+    await performShellOperation(id, entry.transport, operation)
+  }
+  const manageShellIntegration = (id: string) => {
+    void requestShellOperation(id, {kind:'manage'}).catch(cause => setNotice(localizeMessage(cause.message), 'error'))
+  }
+  const integrationEntry = usePaneSSH(ssh.panes, integration?.id ?? '')
+  const integrationOpen = !!integration && state.activeId === integration.id && integrationEntry?.phase === 'connected' &&
+    integrationEntry.transport === integration.transport
+  const closeIntegration = () => {
+    setIntegration(current => current === integration ? null : current)
+    if (integration && runtimeLatest.current.activeId === integration.id && ssh.currentEntry(integration.id)?.transport === integration.transport)
+      requestFocus(integration.id)
+  }
+  useEffect(() => {
+    if (integration && !integrationOpen) setIntegration(null)
+  }, [integration, integrationOpen])
+  const requestZmodemUpload = useHostAction((id: string) => requestShellOperation(id, {kind:'upload'}))
   async function saveHost(host: HostProfile, credentials?: Credentials, passwordSave?:ConnectionPasswordSave, expectedRevision?: number) {
     const receipt = await savedWorkspace.saveHost(host, expectedRevision, passwordSave)
     if (!receipt) return false
@@ -929,9 +964,15 @@ export default function Workbench() {
   const newTerminal=activeSession&&activeGroup&&!activeSession.pending?()=>openNewTerminal(activeSession,activeGroup.id):undefined
   const hostDocuments=remoteRequests
   const documentName=(path:string)=>path.split('/').at(-1)??path
-  const tabSpace=(id:string)=>{
-    const group=groupFor(runtime,id),space=group&&spaces.get(group.workspaceId??group.id)
-    return {groupId:space?.id,groupName:space?.name}
+  const tabSpace = (paneId: string) => {
+    const group = groupFor(runtime, paneId)
+    const space = group && spaces.get(group.workspaceId ?? group.id)
+    const pane = sessionById.get(paneId)
+    return {
+      groupId: space?.id,
+      groupName: space?.name,
+      onNewTerminal: group && pane && !pane.pending ? () => openNewTerminal(pane, group.id) : undefined,
+    }
   }
   const connectionTabs:ConnectionTab[]=runtime.groups.map(group=>{
     const panes=leaves(group.root).map(id=>sessionById.get(id)!)
@@ -1150,6 +1191,8 @@ export default function Workbench() {
                   reconnecting={!!activeSSH?.retry || !!activeSSH?.automatic && ['connecting','hostkey','authentication'].includes(activeSSH.phase)}
                   onConnection={()=>{if(activeSession)toggleSessionConnection(activeSession.id)}}
                   onForwards={()=>sessionTools.current?.openForwards()} forwards={Object.values(activeSSH?.forwards??{}).filter(rule=>rule.state==='running').length}
+                  onShellIntegration={()=>manageShellIntegration(state.activeId)}
+                  zmodemAvailable={!!activeSSH?.transport.startZmodemUpload}
                   broadcastAvailable={!!activeGroup&&leaves(activeGroup.root).some(id=>ssh.entries[id]?.phase==='connected')} onBroadcast={()=>{if(activeGroup)sessionTools.current?.openBroadcast(activeGroup.id)}}
                   fontSize={fontSize} onFontSize={fontSize=>updatePreferences({...preferences,fontSize})}
                   remoteView={!!desktopViews[state.activeId]||filesSelected||!!selectedDocument||!!logViews[state.activeId]||!!diffViews[state.activeId]}
@@ -1165,11 +1208,11 @@ export default function Workbench() {
                     desktopLoaded={!!desktopLoaded[id]} desktopOpen={!!desktopViews[id]} logsOpen={!!logViews[id]}
                     diffOpen={!!diffViews[id]} diffRequest={diffRequests[id]}
                     showTerminal={showPaneTerminal} closeLogs={closePaneLogs} closeDiff={closePaneDiff}
-                    connect={connectPane} disconnect={ssh.disconnect} retry={ssh.retryNow}
+                    connect={connectPane} disconnect={ssh.disconnect}
                     mode={mode} terminalPalette={terminalPalette} fontSize={fontSize} fontFamily={preferences.fontFamily}
                     fallbackFont={preferences.fallbackFont} lineHeight={preferences.lineHeight} scrollback={preferences.scrollback} cursorBlink={preferences.cursorBlink} screenReaderMode={preferences.screenReaderMode}
                     onFileGuard={registerFileGuard} onProtection={protectRemote} onReady={registerTerminal}
-                    onFocusAvailable={terminalFocus.ready} onError={reportTerminalError} onActionError={message=>setNotice(message, 'error')}/>}/>
+                    onFocusAvailable={terminalFocus.ready} onZmodemUpload={requestZmodemUpload} onError={reportTerminalError} onActionError={message=>setNotice(message, 'error')}/>}/>
               <Stack id={filesSelected?'panel-files-'+state.activeId:undefined} role="tabpanel" aria-labelledby={filesSelected?'tab-files-'+state.activeId:undefined}
                 hidden={!filesSelected} inert={!filesSelected} style={{...fill,display:filesSelected?'flex':'none'}}>
                 {state.sessions.filter(session=>!session.pending&&fileWorkspaceViews[session.id]!==undefined).map(session=>{
@@ -1179,7 +1222,8 @@ export default function Workbench() {
                       session={session} source={ssh.panes} active={active} path={paths[id]??'.'} onPath={next=>setPaths(v=>({...v,[id]:next}))}
                       onConnect={() => connectSession(id)} onCancelConnection={() => ssh.disconnect(id)}
                       onEdit={path=>openRemoteText(id,path)} reloadVersion={remoteRefresh} directorySync={preferences.directorySync}
-                      onDirectorySync={directorySync=>updatePreferences({...preferences,directorySync})} onEnterDirectory={path=>enterTerminalDirectory(id,path)}
+                      onDirectorySync={directorySync=>updatePreferences({...preferences,directorySync})} onEnterDirectory={path=>requestShellOperation(id,{kind:'directory',path})}
+                      onShellIntegration={()=>manageShellIntegration(id)}
                       onComparisonText={(comparison,relative)=>openComparison(id,comparison,relative)}/>
                   </Suspense>
                 })}
@@ -1247,6 +1291,18 @@ export default function Workbench() {
           else (document.getElementById('session-command-trigger') ?? workspaceFocusTarget())?.focus({ preventScroll: true })
         }}
         onSaved={saved => setNotice(tr("已保存「{p0}」", saved.name), 'success')} />}
+      {integrationOpen && integration && activeSession && <Suspense fallback={null}>
+        <ShellIntegrationDialog key={integration.id + ':' + integrationEntry.attempt}
+          host={activeSession.host.name + ' · ' + activeSession.host.username + '@' + activeSession.host.address}
+          transport={integration.transport} integrated={!!integrationEntry.directory?.integrated} operation={integration.operation}
+          onClose={closeIntegration}
+          onSaved={() => { closeIntegration(); setNotice(tr('已更新远程 Bash 登录配置。'), 'success') }}
+          onContinue={async () => {
+            if (runtimeLatest.current.activeId !== integration.id) return
+            await performShellOperation(integration.id, integration.transport, integration.operation)
+            closeIntegration()
+          }}/>
+      </Suspense>}
       <DialogPresence value={authOpen&&activeSession&&!activeSession.pending&&SessionConnectionPanel ? {
         session:activeSession,live:activeSSH,Panel:SessionConnectionPanel,keys:keyReferences.keys,
         identities:identities.items,keyError:localizeMessage(keyReferences.error),

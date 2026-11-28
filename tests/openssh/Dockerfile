@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssh-server 
  && useradd -m -s /bin/bash yaaretest && echo 'yaaretest:Yaare-OpenSSH-Test-Only!' | chpasswd \
  && useradd -m -s /bin/bash yaarenteractive && echo 'yaarenteractive:Yaare-OpenSSH-Test-Only!' | chpasswd \
  && mkdir -p /run/sshd /home/yaaretest/files /home/yaaretest/readonly \
+    && printf 'Yaare OpenSSH fixture MOTD\n' > /etc/motd \
  && printf 'Yaare SFTP test\n中文与 Emoji 🦂\n' > /home/yaaretest/files/hello.txt \
  && dd if=/dev/zero of=/home/yaaretest/files/large.bin bs=1M count=16 \
  && chown -R yaaretest:yaaretest /home/yaaretest/files && chmod 555 /home/yaaretest/readonly

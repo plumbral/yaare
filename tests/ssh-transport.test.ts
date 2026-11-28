@@ -253,6 +253,24 @@ test('directory metadata stays separate from PTY bytes and navigation keeps the 
  await expect(f.transport.changeDirectory('/old')).rejects.toThrow()
 })
 
+test('native login renders early banner and PTY bytes before any shell integration request', async () => {
+  const f = fixture('', undefined, { attempt: 2 })
+  const reader = f.transport.read(new AbortController().signal)
+  const banner = new TextEncoder().encode('SSH access notice\r\n')
+  const greeting = new TextEncoder().encode('Ubuntu · 欢迎\r\nLast login: fixture\r\nfixture$ ')
+  try {
+    await expect(f.transport.enableShellIntegration()).rejects.toThrow()
+    f.channel.push(output(banner))
+    f.channel.push({ type: 'connected', revision: 1 })
+    f.channel.push(output(greeting))
+    expect((await reader.next()).value).toEqual(banner)
+    expect((await reader.next()).value).toEqual(greeting)
+    expect(f.calls.filter(call => /\.(Write|EnableShellIntegration|ApplyBashIntegration)$/.test(call.name))).toHaveLength(0)
+    await f.transport.enableShellIntegration()
+    expect(f.calls.at(-1)).toEqual({ name: 'SSHService.EnableShellIntegration', args: ['test-session', 2] })
+  } finally { f.transport.close(); await reader.return?.() }
+})
+
 test('stale and duplicate control events cannot regress a connected transport or revive a closed one',async()=>{
  const f=fixture(),reader=f.transport.read(new AbortController().signal)[Symbol.asyncIterator]()
  f.channel.push({type:'connected',revision:10})

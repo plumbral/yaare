@@ -30590,3 +30590,313 @@ func AboutComposeGuide() string { return In(i18n.Locale()).AboutComposeGuide() }
 func (msgs Messages) AboutComposeGuide() string {
 	return Catalog.Format(msgs.locale, "about_compose_guide", nil)
 }
+
+// TerminalOpenLinkHint says "{p0} + click"
+// in the language the app shows.
+func TerminalOpenLinkHint(p0 string) string { return In(i18n.Locale()).TerminalOpenLinkHint(p0) }
+
+// TerminalOpenLinkHint says "{p0} + click"
+// in the language of msgs.
+func (msgs Messages) TerminalOpenLinkHint(p0 string) string {
+	return Catalog.Format(msgs.locale, "terminal_open_link_hint", map[string]any{"p0": p0})
+}
+
+// NewTerminalIn says "New terminal in {p0}"
+// in the language the app shows.
+func NewTerminalIn(p0 string) string { return In(i18n.Locale()).NewTerminalIn(p0) }
+
+// NewTerminalIn says "New terminal in {p0}"
+// in the language of msgs.
+func (msgs Messages) NewTerminalIn(p0 string) string {
+	return Catalog.Format(msgs.locale, "new_terminal_in", map[string]any{"p0": p0})
+}
+
+// BashMenu says "Bash shell integration…"
+// in the language the app shows.
+func BashMenu() string { return In(i18n.Locale()).BashMenu() }
+
+// BashMenu says "Bash shell integration…"
+// in the language of msgs.
+func (msgs Messages) BashMenu() string {
+	return Catalog.Format(msgs.locale, "bash_menu", nil)
+}
+
+// BashTitle says "Bash shell integration"
+// in the language the app shows.
+func BashTitle() string { return In(i18n.Locale()).BashTitle() }
+
+// BashTitle says "Bash shell integration"
+// in the language of msgs.
+func (msgs Messages) BashTitle() string {
+	return Catalog.Format(msgs.locale, "bash_title", nil)
+}
+
+// BashUnavailable says "The session is unavailable. Try again later."
+// in the language the app shows.
+func BashUnavailable() string { return In(i18n.Locale()).BashUnavailable() }
+
+// BashUnavailable says "The session is unavailable. Try again later."
+// in the language of msgs.
+func (msgs Messages) BashUnavailable() string {
+	return Catalog.Format(msgs.locale, "bash_unavailable", nil)
+}
+
+// BashOperationFailed says "The Bash integration operation failed."
+// in the language the app shows.
+func BashOperationFailed() string { return In(i18n.Locale()).BashOperationFailed() }
+
+// BashOperationFailed says "The Bash integration operation failed."
+// in the language of msgs.
+func (msgs Messages) BashOperationFailed() string {
+	return Catalog.Format(msgs.locale, "bash_operation_failed", nil)
+}
+
+// BashInstall says "Install"
+// in the language the app shows.
+func BashInstall() string { return In(i18n.Locale()).BashInstall() }
+
+// BashInstall says "Install"
+// in the language of msgs.
+func (msgs Messages) BashInstall() string {
+	return Catalog.Format(msgs.locale, "bash_install", nil)
+}
+
+// BashRemove says "Remove"
+// in the language the app shows.
+func BashRemove() string { return In(i18n.Locale()).BashRemove() }
+
+// BashRemove says "Remove"
+// in the language of msgs.
+func (msgs Messages) BashRemove() string {
+	return Catalog.Format(msgs.locale, "bash_remove", nil)
+}
+
+// BashBack says "Back"
+// in the language the app shows.
+func BashBack() string { return In(i18n.Locale()).BashBack() }
+
+// BashBack says "Back"
+// in the language of msgs.
+func (msgs Messages) BashBack() string {
+	return Catalog.Format(msgs.locale, "bash_back", nil)
+}
+
+// BashEnableCd says "Enable and change directory"
+// in the language the app shows.
+func BashEnableCd() string { return In(i18n.Locale()).BashEnableCd() }
+
+// BashEnableCd says "Enable and change directory"
+// in the language of msgs.
+func (msgs Messages) BashEnableCd() string {
+	return Catalog.Format(msgs.locale, "bash_enable_cd", nil)
+}
+
+// BashEnableRz says "Enable and start upload"
+// in the language the app shows.
+func BashEnableRz() string { return In(i18n.Locale()).BashEnableRz() }
+
+// BashEnableRz says "Enable and start upload"
+// in the language of msgs.
+func (msgs Messages) BashEnableRz() string {
+	return Catalog.Format(msgs.locale, "bash_enable_rz", nil)
+}
+
+// BashEnableOnce says "Enable for this session"
+// in the language the app shows.
+func BashEnableOnce() string { return In(i18n.Locale()).BashEnableOnce() }
+
+// BashEnableOnce says "Enable for this session"
+// in the language of msgs.
+func (msgs Messages) BashEnableOnce() string {
+	return Catalog.Format(msgs.locale, "bash_enable_once", nil)
+}
+
+// BashProfileNotice says "These changes apply to this remote account’s future interactive SSH logins with Bash."
+// in the language the app shows.
+func BashProfileNotice() string { return In(i18n.Locale()).BashProfileNotice() }
+
+// BashProfileNotice says "These changes apply to this remote account’s future interactive SSH logins with Bash."
+// in the language of msgs.
+func (msgs Messages) BashProfileNotice() string {
+	return Catalog.Format(msgs.locale, "bash_profile_notice", nil)
+}
+
+// BashProfileAppend says "Append to {p0}"
+// in the language the app shows.
+func BashProfileAppend(p0 string) string { return In(i18n.Locale()).BashProfileAppend(p0) }
+
+// BashProfileAppend says "Append to {p0}"
+// in the language of msgs.
+func (msgs Messages) BashProfileAppend(p0 string) string {
+	return Catalog.Format(msgs.locale, "bash_profile_append", map[string]any{"p0": p0})
+}
+
+// BashProfileCreate says "Create startup file {p0}"
+// in the language the app shows.
+func BashProfileCreate(p0 string) string { return In(i18n.Locale()).BashProfileCreate(p0) }
+
+// BashProfileCreate says "Create startup file {p0}"
+// in the language of msgs.
+func (msgs Messages) BashProfileCreate(p0 string) string {
+	return Catalog.Format(msgs.locale, "bash_profile_create", map[string]any{"p0": p0})
+}
+
+// BashProfileRemove says "Remove integration code from {p0}"
+// in the language the app shows.
+func BashProfileRemove(p0 string) string { return In(i18n.Locale()).BashProfileRemove(p0) }
+
+// BashProfileRemove says "Remove integration code from {p0}"
+// in the language of msgs.
+func (msgs Messages) BashProfileRemove(p0 string) string {
+	return Catalog.Format(msgs.locale, "bash_profile_remove", map[string]any{"p0": p0})
+}
+
+// BashProfileDelete says "Delete startup file {p0}, which contains only the integration code"
+// in the language the app shows.
+func BashProfileDelete(p0 string) string { return In(i18n.Locale()).BashProfileDelete(p0) }
+
+// BashProfileDelete says "Delete startup file {p0}, which contains only the integration code"
+// in the language of msgs.
+func (msgs Messages) BashProfileDelete(p0 string) string {
+	return Catalog.Format(msgs.locale, "bash_profile_delete", map[string]any{"p0": p0})
+}
+
+// BashKeyCreate says "Create a private key file for this account at {p0}"
+// in the language the app shows.
+func BashKeyCreate(p0 string) string { return In(i18n.Locale()).BashKeyCreate(p0) }
+
+// BashKeyCreate says "Create a private key file for this account at {p0}"
+// in the language of msgs.
+func (msgs Messages) BashKeyCreate(p0 string) string {
+	return Catalog.Format(msgs.locale, "bash_key_create", map[string]any{"p0": p0})
+}
+
+// BashKeyDelete says "Delete integration key file {p0}"
+// in the language the app shows.
+func BashKeyDelete(p0 string) string { return In(i18n.Locale()).BashKeyDelete(p0) }
+
+// BashKeyDelete says "Delete integration key file {p0}"
+// in the language of msgs.
+func (msgs Messages) BashKeyDelete(p0 string) string {
+	return Catalog.Format(msgs.locale, "bash_key_delete", map[string]any{"p0": p0})
+}
+
+// BashActive says "Directory and prompt reporting is active in this session."
+// in the language the app shows.
+func BashActive() string { return In(i18n.Locale()).BashActive() }
+
+// BashActive says "Directory and prompt reporting is active in this session."
+// in the language of msgs.
+func (msgs Messages) BashActive() string {
+	return Catalog.Format(msgs.locale, "bash_active", nil)
+}
+
+// BashEmptyPrompt says "Make sure the terminal is at an empty Bash prompt. Enabling integration loads directory and prompt reporting into the…"
+// in the language the app shows.
+func BashEmptyPrompt() string { return In(i18n.Locale()).BashEmptyPrompt() }
+
+// BashEmptyPrompt says "Make sure the terminal is at an empty Bash prompt. Enabling integration loads directory and prompt reporting into the…"
+// in the language of msgs.
+func (msgs Messages) BashEmptyPrompt() string {
+	return Catalog.Format(msgs.locale, "bash_empty_prompt", nil)
+}
+
+// BashCdTarget says "Target directory: {p0}"
+// in the language the app shows.
+func BashCdTarget(p0 string) string { return In(i18n.Locale()).BashCdTarget(p0) }
+
+// BashCdTarget says "Target directory: {p0}"
+// in the language of msgs.
+func (msgs Messages) BashCdTarget(p0 string) string {
+	return Catalog.Format(msgs.locale, "bash_cd_target", map[string]any{"p0": p0})
+}
+
+// BashRzHint says "When integration is ready, rz will start in this terminal."
+// in the language the app shows.
+func BashRzHint() string { return In(i18n.Locale()).BashRzHint() }
+
+// BashRzHint says "When integration is ready, rz will start in this terminal."
+// in the language of msgs.
+func (msgs Messages) BashRzHint() string {
+	return Catalog.Format(msgs.locale, "bash_rz_hint", nil)
+}
+
+// BashPreview says "Preview automatic loading for this account…"
+// in the language the app shows.
+func BashPreview() string { return In(i18n.Locale()).BashPreview() }
+
+// BashPreview says "Preview automatic loading for this account…"
+// in the language of msgs.
+func (msgs Messages) BashPreview() string {
+	return Catalog.Format(msgs.locale, "bash_preview", nil)
+}
+
+// BashSaved says "Remote Bash login settings updated."
+// in the language the app shows.
+func BashSaved() string { return In(i18n.Locale()).BashSaved() }
+
+// BashSaved says "Remote Bash login settings updated."
+// in the language of msgs.
+func (msgs Messages) BashSaved() string {
+	return Catalog.Format(msgs.locale, "bash_saved", nil)
+}
+
+// BashNoAck says "Bash did not confirm a prompt. Try again at an empty command line."
+// in the language the app shows.
+func BashNoAck() string { return In(i18n.Locale()).BashNoAck() }
+
+// BashNoAck says "Bash did not confirm a prompt. Try again at an empty command line."
+// in the language of msgs.
+func (msgs Messages) BashNoAck() string {
+	return Catalog.Format(msgs.locale, "bash_no_ack", nil)
+}
+
+// BashProfileUnsafe says "Could not update Bash startup settings safely. Check remote file permissions, file types, and the Yaare-managed content."
+// in the language the app shows.
+func BashProfileUnsafe() string { return In(i18n.Locale()).BashProfileUnsafe() }
+
+// BashProfileUnsafe says "Could not update Bash startup settings safely. Check remote file permissions, file types, and the Yaare-managed content."
+// in the language of msgs.
+func (msgs Messages) BashProfileUnsafe() string {
+	return Catalog.Format(msgs.locale, "bash_profile_unsafe", nil)
+}
+
+// BashProfileChanged says "The Bash integration settings changed. Open the preview again."
+// in the language the app shows.
+func BashProfileChanged() string { return In(i18n.Locale()).BashProfileChanged() }
+
+// BashProfileChanged says "The Bash integration settings changed. Open the preview again."
+// in the language of msgs.
+func (msgs Messages) BashProfileChanged() string {
+	return Catalog.Format(msgs.locale, "bash_profile_changed", nil)
+}
+
+// BashRequirements says "Automatic loading requires OpenSSH on Linux, Bash, SFTP, flock, sha256sum, and GNU stat."
+// in the language the app shows.
+func BashRequirements() string { return In(i18n.Locale()).BashRequirements() }
+
+// BashRequirements says "Automatic loading requires OpenSSH on Linux, Bash, SFTP, flock, sha256sum, and GNU stat."
+// in the language of msgs.
+func (msgs Messages) BashRequirements() string {
+	return Catalog.Format(msgs.locale, "bash_requirements", nil)
+}
+
+// BashHomeLock says "Could not lock the remote account’s home directory. Try again later."
+// in the language the app shows.
+func BashHomeLock() string { return In(i18n.Locale()).BashHomeLock() }
+
+// BashHomeLock says "Could not lock the remote account’s home directory. Try again later."
+// in the language of msgs.
+func (msgs Messages) BashHomeLock() string {
+	return Catalog.Format(msgs.locale, "bash_home_lock", nil)
+}
+
+// ZmodemFinishUnconfirmed says "Saved {p0} file(s). The end of this transfer batch was not confirmed."
+// in the language the app shows.
+func ZmodemFinishUnconfirmed(p0 string) string { return In(i18n.Locale()).ZmodemFinishUnconfirmed(p0) }
+
+// ZmodemFinishUnconfirmed says "Saved {p0} file(s). The end of this transfer batch was not confirmed."
+// in the language of msgs.
+func (msgs Messages) ZmodemFinishUnconfirmed(p0 string) string {
+	return Catalog.Format(msgs.locale, "zmodem_finish_unconfirmed", map[string]any{"p0": p0})
+}

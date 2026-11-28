@@ -85,6 +85,7 @@ func (fixture *directoryProtocol) serveChannel(channel ssh.Channel, requests <-c
 		case "shell":
 			_ = request.Reply(true, nil)
 			go ssh.DiscardRequests(requests)
+			_, _ = io.WriteString(channel, sshfixture.Greeting)
 			_, _ = io.Copy(channel, channel)
 			return
 		case "exec":
@@ -143,7 +144,7 @@ func startDirectoryProtocol(t *testing.T) (*directoryProtocol, *runResult) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	serverConfig := &ssh.ServerConfig{PasswordCallback: func(meta ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
+	serverConfig := &ssh.ServerConfig{ServerVersion: "SSH-2.0-OpenSSH_9.6", PasswordCallback: func(meta ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 		if meta.User() != sshfixture.Username || string(password) != sshfixture.Password {
 			return nil, errors.New("invalid fixture credentials")
 		}
@@ -167,6 +168,17 @@ func startDirectoryProtocol(t *testing.T) (*directoryProtocol, *runResult) {
 	}
 	run.wait(t, "connected")
 	return fixture, run
+}
+
+func TestOpenSSHNativeShellPreservesLoginOutputAndFirstInput(t *testing.T) {
+	_, run := startDirectoryProtocol(t)
+	if !run.session.Write([]byte("first input\r")) {
+		t.Fatal("first input rejected")
+	}
+	eventually(t, func() bool { return strings.Contains(run.text(), "first input\r") })
+	if got := run.text(); got != sshfixture.Greeting+"first input\r" {
+		t.Fatalf("unexpected login output %q", got)
+	}
 }
 
 func listBrowseFixture(t *testing.T, session *Session, path string, idleTimeout time.Duration) string {

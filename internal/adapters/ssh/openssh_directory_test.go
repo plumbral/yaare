@@ -8,6 +8,9 @@ import (
 func TestRealOpenSSHDirectoryReportsAndSafeNavigation(t *testing.T) {
 	r := realFixture(t, "yaaretest")
 	r.wait(t, "connected")
+	if err := r.session.EnableShellIntegration(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	initial := r.wait(t, "directory").Directory
 	if initial == nil || !initial.Ready || initial.Path != "/home/yaaretest" {
 		t.Fatal("missing initial shell report", initial)

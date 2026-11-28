@@ -14,9 +14,11 @@ import { defaultPreferences, maxTerminalFontSize, minTerminalFontSize, stepTermi
 
 export type TerminalAction='focus'|'search'|'copy'|'paste'|'clear'|'zmodemUpload'
 export default function SessionToolbar({pending,connected,busy,reconnecting,onConnection,onForwards,
-  onTerminal,fontSize,onFontSize,controls,forwards=0,remoteView=false,onLogs,recording=false,onBroadcast,broadcastAvailable=false,onDesktop}:{
+  onTerminal,onShellIntegration,zmodemAvailable,fontSize,onFontSize,controls,forwards=0,remoteView=false,onLogs,recording=false,onBroadcast,broadcastAvailable=false,onDesktop}:{
   pending:boolean;connected:boolean;busy:boolean;reconnecting?:boolean
   onConnection:()=>void;onForwards:()=>void;onTerminal:(action:TerminalAction)=>void
+  onShellIntegration:()=>void
+  zmodemAvailable:boolean
   fontSize:number;onFontSize:(size:number)=>void;controls:WorkspaceControls;forwards?:number
   remoteView?:boolean
   onLogs?:()=>void;recording?:boolean
@@ -46,7 +48,8 @@ export default function SessionToolbar({pending,connected,busy,reconnecting,onCo
       ]},
       {label:recording?tr("会话日志 · 录制中"):tr("会话日志"),isDisabled:pending,onClick:onLogs},
       ...(controls.panes.length<=1?[{label:tr("命令广播…"),isDisabled:!broadcastAvailable,onClick:onBroadcast}]:[]),
-      {label:tr("ZMODEM 上传…"),isDisabled:!terminalAvailable||!connected,onClick:()=>onTerminal('zmodemUpload')},
+      {label:tr("ZMODEM 上传…"),isDisabled:!terminalAvailable||!connected||!zmodemAvailable,onClick:()=>onTerminal('zmodemUpload')},
+      {label:tr("Bash 终端集成…"),isDisabled:!terminalAvailable||!connected,onClick:onShellIntegration},
     ]},
     {type:'divider'},
     {type:'section',title:tr("连接"),items:[

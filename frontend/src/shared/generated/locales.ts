@@ -12219,6 +12219,130 @@ export interface Messages {
    * `Docker upgrade guide`
    */
   about_compose_guide(): string;
+  /**
+   * `{p0} + click`
+   */
+  terminal_open_link_hint(p0: string): string;
+  /**
+   * `New terminal in {p0}`
+   */
+  new_terminal_in(p0: string): string;
+  /**
+   * `Bash shell integration…`
+   */
+  bash_menu(): string;
+  /**
+   * `Bash shell integration`
+   */
+  bash_title(): string;
+  /**
+   * `The session is unavailable. Try again later.`
+   */
+  bash_unavailable(): string;
+  /**
+   * `The Bash integration operation failed.`
+   */
+  bash_operation_failed(): string;
+  /**
+   * `Install`
+   */
+  bash_install(): string;
+  /**
+   * `Remove`
+   */
+  bash_remove(): string;
+  /**
+   * `Back`
+   */
+  bash_back(): string;
+  /**
+   * `Enable and change directory`
+   */
+  bash_enable_cd(): string;
+  /**
+   * `Enable and start upload`
+   */
+  bash_enable_rz(): string;
+  /**
+   * `Enable for this session`
+   */
+  bash_enable_once(): string;
+  /**
+   * `These changes apply to this remote account’s future interactive SSH logins with Bash.`
+   */
+  bash_profile_notice(): string;
+  /**
+   * `Append to {p0}`
+   */
+  bash_profile_append(p0: string): string;
+  /**
+   * `Create startup file {p0}`
+   */
+  bash_profile_create(p0: string): string;
+  /**
+   * `Remove integration code from {p0}`
+   */
+  bash_profile_remove(p0: string): string;
+  /**
+   * `Delete startup file {p0}, which contains only the integration code`
+   */
+  bash_profile_delete(p0: string): string;
+  /**
+   * `Create a private key file for this account at {p0}`
+   */
+  bash_key_create(p0: string): string;
+  /**
+   * `Delete integration key file {p0}`
+   */
+  bash_key_delete(p0: string): string;
+  /**
+   * `Directory and prompt reporting is active in this session.`
+   */
+  bash_active(): string;
+  /**
+   * `Make sure the terminal is at an empty Bash prompt. Enabling integration loads directory and prompt reporting into the current shell.`
+   */
+  bash_empty_prompt(): string;
+  /**
+   * `Target directory: {p0}`
+   */
+  bash_cd_target(p0: string): string;
+  /**
+   * `When integration is ready, rz will start in this terminal.`
+   */
+  bash_rz_hint(): string;
+  /**
+   * `Preview automatic loading for this account…`
+   */
+  bash_preview(): string;
+  /**
+   * `Remote Bash login settings updated.`
+   */
+  bash_saved(): string;
+  /**
+   * `Bash did not confirm a prompt. Try again at an empty command line.`
+   */
+  bash_no_ack(): string;
+  /**
+   * `Could not update Bash startup settings safely. Check remote file permissions, file types, and the Yaare-managed content.`
+   */
+  bash_profile_unsafe(): string;
+  /**
+   * `The Bash integration settings changed. Open the preview again.`
+   */
+  bash_profile_changed(): string;
+  /**
+   * `Automatic loading requires OpenSSH on Linux, Bash, SFTP, flock, sha256sum, and GNU stat.`
+   */
+  bash_requirements(): string;
+  /**
+   * `Could not lock the remote account’s home directory. Try again later.`
+   */
+  bash_home_lock(): string;
+  /**
+   * `Saved {p0} file(s). The end of this transfer batch was not confirmed.`
+   */
+  zmodem_finish_unconfirmed(p0: string): string;
 }
 
 const catalog = createCatalog<Messages>({
@@ -15285,6 +15409,37 @@ const catalog = createCatalog<Messages>({
     "about_image_version": ["p0"],
     "about_compose_updates": [],
     "about_compose_guide": [],
+    "terminal_open_link_hint": ["p0"],
+    "new_terminal_in": ["p0"],
+    "bash_menu": [],
+    "bash_title": [],
+    "bash_unavailable": [],
+    "bash_operation_failed": [],
+    "bash_install": [],
+    "bash_remove": [],
+    "bash_back": [],
+    "bash_enable_cd": [],
+    "bash_enable_rz": [],
+    "bash_enable_once": [],
+    "bash_profile_notice": [],
+    "bash_profile_append": ["p0"],
+    "bash_profile_create": ["p0"],
+    "bash_profile_remove": ["p0"],
+    "bash_profile_delete": ["p0"],
+    "bash_key_create": ["p0"],
+    "bash_key_delete": ["p0"],
+    "bash_active": [],
+    "bash_empty_prompt": [],
+    "bash_cd_target": ["p0"],
+    "bash_rz_hint": [],
+    "bash_preview": [],
+    "bash_saved": [],
+    "bash_no_ack": [],
+    "bash_profile_unsafe": [],
+    "bash_profile_changed": [],
+    "bash_requirements": [],
+    "bash_home_lock": [],
+    "zmodem_finish_unconfirmed": ["p0"],
   },
   messages: {
     "en": {
@@ -18342,6 +18497,37 @@ const catalog = createCatalog<Messages>({
       "about_image_version": "Current image version: {p0}",
       "about_compose_updates": "The administrator updates this instance using Docker Compose.",
       "about_compose_guide": "Docker upgrade guide",
+      "terminal_open_link_hint": "{p0} + click",
+      "new_terminal_in": "New terminal in {p0}",
+      "bash_menu": "Bash shell integration…",
+      "bash_title": "Bash shell integration",
+      "bash_unavailable": "The session is unavailable. Try again later.",
+      "bash_operation_failed": "The Bash integration operation failed.",
+      "bash_install": "Install",
+      "bash_remove": "Remove",
+      "bash_back": "Back",
+      "bash_enable_cd": "Enable and change directory",
+      "bash_enable_rz": "Enable and start upload",
+      "bash_enable_once": "Enable for this session",
+      "bash_profile_notice": "These changes apply to this remote account’s future interactive SSH logins with Bash.",
+      "bash_profile_append": "Append to {p0}",
+      "bash_profile_create": "Create startup file {p0}",
+      "bash_profile_remove": "Remove integration code from {p0}",
+      "bash_profile_delete": "Delete startup file {p0}, which contains only the integration code",
+      "bash_key_create": "Create a private key file for this account at {p0}",
+      "bash_key_delete": "Delete integration key file {p0}",
+      "bash_active": "Directory and prompt reporting is active in this session.",
+      "bash_empty_prompt": "Make sure the terminal is at an empty Bash prompt. Enabling integration loads directory and prompt reporting into the current shell.",
+      "bash_cd_target": "Target directory: {p0}",
+      "bash_rz_hint": "When integration is ready, rz will start in this terminal.",
+      "bash_preview": "Preview automatic loading for this account…",
+      "bash_saved": "Remote Bash login settings updated.",
+      "bash_no_ack": "Bash did not confirm a prompt. Try again at an empty command line.",
+      "bash_profile_unsafe": "Could not update Bash startup settings safely. Check remote file permissions, file types, and the Yaare-managed content.",
+      "bash_profile_changed": "The Bash integration settings changed. Open the preview again.",
+      "bash_requirements": "Automatic loading requires OpenSSH on Linux, Bash, SFTP, flock, sha256sum, and GNU stat.",
+      "bash_home_lock": "Could not lock the remote account’s home directory. Try again later.",
+      "zmodem_finish_unconfirmed": "Saved {p0} file(s). The end of this transfer batch was not confirmed.",
     },
     "ja": {
       "storage_workspace_full": "ディスクの空き容量が不足しているか、設定データベースが 1 GiB の上限に達しました。空き容量を増やすか不要な設定を削除してから、もう一度お試しください。",
@@ -21398,6 +21584,37 @@ const catalog = createCatalog<Messages>({
       "about_image_version": "現在のイメージバージョン：{p0}",
       "about_compose_updates": "このインスタンスの更新は、管理者が Docker Compose で行います。",
       "about_compose_guide": "Docker アップグレードガイド",
+      "terminal_open_link_hint": "{p0} + クリック",
+      "new_terminal_in": "「{p0}」に新しい端末を作成",
+      "bash_menu": "Bash シェル統合…",
+      "bash_title": "Bash シェル統合",
+      "bash_unavailable": "現在このセッションは利用できません。後でもう一度お試しください。",
+      "bash_operation_failed": "Bash 統合の操作に失敗しました。",
+      "bash_install": "インストール",
+      "bash_remove": "削除",
+      "bash_back": "戻る",
+      "bash_enable_cd": "有効にしてディレクトリを移動",
+      "bash_enable_rz": "有効にしてアップロードを開始",
+      "bash_enable_once": "このセッションで有効にする",
+      "bash_profile_notice": "以下の変更は、このリモートアカウントで今後 SSH から Bash に対話ログインするときに適用されます。",
+      "bash_profile_append": "{p0} に追記",
+      "bash_profile_create": "起動ファイル {p0} を作成",
+      "bash_profile_remove": "{p0} から統合コードを削除",
+      "bash_profile_delete": "統合コードのみを含む起動ファイル {p0} を削除",
+      "bash_key_create": "このアカウント専用の鍵ファイル {p0} を作成",
+      "bash_key_delete": "統合用の鍵ファイル {p0} を削除",
+      "bash_active": "このセッションではディレクトリとプロンプトの通知が有効です。",
+      "bash_empty_prompt": "Bash のプロンプトが表示され、入力行が空であることを確認してください。有効にすると現在のシェルでディレクトリとプロンプトの通知が始まります。",
+      "bash_cd_target": "移動先のディレクトリ：{p0}",
+      "bash_rz_hint": "統合の準備ができると、この端末で rz が起動します。",
+      "bash_preview": "このアカウントの自動読み込み設定を確認…",
+      "bash_saved": "リモートの Bash ログイン設定を更新しました。",
+      "bash_no_ack": "Bash プロンプトの確認が届きませんでした。空のコマンド行で再試行してください。",
+      "bash_profile_unsafe": "Bash の起動設定を安全に更新できません。リモートファイルの権限、種類、Yaare が管理する内容を確認してください。",
+      "bash_profile_changed": "Bash 統合の設定が変更されました。もう一度プレビューしてください。",
+      "bash_requirements": "自動読み込みには Linux 上の OpenSSH、Bash、SFTP、flock、sha256sum、GNU stat が必要です。",
+      "bash_home_lock": "リモートアカウントのホームディレクトリをロックできません。しばらくしてから再試行してください。",
+      "zmodem_finish_unconfirmed": "{p0} 個のファイルを保存しました。今回の転送の終了は確認できませんでした。",
     },
     "zh-Hans": {
       "storage_workspace_full": "磁盘空间不足或配置数据库已达到 1 GiB 上限，请释放空间或减少配置后重试。",
@@ -24454,6 +24671,37 @@ const catalog = createCatalog<Messages>({
       "about_image_version": "当前镜像版本 {p0}",
       "about_compose_updates": "此实例由部署管理员通过 Docker Compose 更新。",
       "about_compose_guide": "Docker 升级指南",
+      "terminal_open_link_hint": "{p0} + 单击",
+      "new_terminal_in": "在「{p0}」中新建终端",
+      "bash_menu": "Bash 终端集成…",
+      "bash_title": "Bash 终端集成",
+      "bash_unavailable": "会话当前不可用，请稍后重试。",
+      "bash_operation_failed": "Bash 集成操作失败。",
+      "bash_install": "安装",
+      "bash_remove": "移除",
+      "bash_back": "返回",
+      "bash_enable_cd": "启用并进入目录",
+      "bash_enable_rz": "启用并启动上传",
+      "bash_enable_once": "为本次会话启用",
+      "bash_profile_notice": "以下改动作用于此远程账户，以后的交互式 SSH Bash 登录将使用更新后的配置。",
+      "bash_profile_append": "追加到 {p0}",
+      "bash_profile_create": "创建启动文件 {p0}",
+      "bash_profile_remove": "从 {p0} 移除集成代码",
+      "bash_profile_delete": "删除仅包含集成代码的启动文件 {p0}",
+      "bash_key_create": "创建仅供此账户使用的密钥文件 {p0}",
+      "bash_key_delete": "删除集成密钥文件 {p0}",
+      "bash_active": "本次会话已启用目录和提示符报告。",
+      "bash_empty_prompt": "请确认终端停在空白的 Bash 命令提示符。启用后，Yaare 会在当前 shell 中加载目录和提示符报告。",
+      "bash_cd_target": "目标目录：{p0}",
+      "bash_rz_hint": "集成就绪后，将在此终端启动 rz。",
+      "bash_preview": "预览此账户的自动加载设置…",
+      "bash_saved": "已更新远程 Bash 登录配置。",
+      "bash_no_ack": "未收到 Bash 提示符确认，请在空命令行重试。",
+      "bash_profile_unsafe": "无法安全修改 Bash 启动配置。请检查远程文件权限、类型及 Yaare 管理的内容。",
+      "bash_profile_changed": "Bash 集成配置已变化，请重新预览。",
+      "bash_requirements": "自动加载需要 Linux OpenSSH、Bash、SFTP、flock、sha256sum 和 GNU stat。",
+      "bash_home_lock": "无法锁定远程账户的主目录，请稍后重试。",
+      "zmodem_finish_unconfirmed": "已保存 {p0} 个文件，未确认本批传输结束。",
     },
     "zh-Hant": {
       "storage_workspace_full": "磁碟空間不足或設定資料庫已達到 1 GiB 上限。請釋放空間或減少設定資料後再試一次。",
@@ -27510,6 +27758,37 @@ const catalog = createCatalog<Messages>({
       "about_image_version": "目前的映像檔版本：{p0}",
       "about_compose_updates": "此執行個體由部署管理員透過 Docker Compose 更新。",
       "about_compose_guide": "Docker 升級指南",
+      "terminal_open_link_hint": "{p0} + 點擊",
+      "new_terminal_in": "在「{p0}」中新增終端機",
+      "bash_menu": "Bash 終端機整合…",
+      "bash_title": "Bash 終端機整合",
+      "bash_unavailable": "工作階段目前無法使用，請稍後重試。",
+      "bash_operation_failed": "Bash 整合操作失敗。",
+      "bash_install": "安裝",
+      "bash_remove": "移除",
+      "bash_back": "返回",
+      "bash_enable_cd": "啟用並切換目錄",
+      "bash_enable_rz": "啟用並開始上傳",
+      "bash_enable_once": "為此工作階段啟用",
+      "bash_profile_notice": "以下變更適用於此遠端帳戶，之後透過 SSH 互動式登入 Bash 時會使用更新後的設定。",
+      "bash_profile_append": "附加到 {p0}",
+      "bash_profile_create": "建立啟動檔 {p0}",
+      "bash_profile_remove": "從 {p0} 移除整合程式碼",
+      "bash_profile_delete": "刪除僅包含整合程式碼的啟動檔 {p0}",
+      "bash_key_create": "建立僅供此帳戶使用的金鑰檔案 {p0}",
+      "bash_key_delete": "刪除整合金鑰檔案 {p0}",
+      "bash_active": "此工作階段已啟用目錄與提示字元回報。",
+      "bash_empty_prompt": "請確認終端機停在空白的 Bash 命令提示字元。啟用後，Yaare 會在目前的 shell 中載入目錄與提示字元回報。",
+      "bash_cd_target": "目標目錄：{p0}",
+      "bash_rz_hint": "整合就緒後，將在此終端機啟動 rz。",
+      "bash_preview": "預覽此帳戶的自動載入設定…",
+      "bash_saved": "已更新遠端 Bash 登入設定。",
+      "bash_no_ack": "未收到 Bash 提示字元確認，請在空白命令列重試。",
+      "bash_profile_unsafe": "無法安全修改 Bash 啟動設定。請檢查遠端檔案權限、類型及 Yaare 管理的內容。",
+      "bash_profile_changed": "Bash 整合設定已變更，請重新預覽。",
+      "bash_requirements": "自動載入需要 Linux OpenSSH、Bash、SFTP、flock、sha256sum 和 GNU stat。",
+      "bash_home_lock": "無法鎖定遠端帳戶的家目錄，請稍後重試。",
+      "zmodem_finish_unconfirmed": "已儲存 {p0} 個檔案，尚未確認本批傳輸結束。",
     },
   },
 });

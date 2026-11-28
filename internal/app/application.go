@@ -6,7 +6,7 @@ type Application struct{}
 
 func New() *Application { return &Application{} }
 
-var version = "0.1.0"
+var version = "0.1.1"
 
 type Info struct {
 	Name         string `json:"name"`

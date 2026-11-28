@@ -51,6 +51,39 @@ test('peer abort is not completion; a closing ZFIN may finish only after a verif
 })
 
 const docker='docker',container='yaare-test-openssh'
+test('a missing final OO releases a native receive and preserves trailing shell output', async () => {
+  const header = require('zmodem.js/src/zheader').Header
+  const init = Uint8Array.from(header.build('ZRQINIT').to_hex())
+  await Promise.all(['','remote prompt$ '].map(async trailing => {
+    const endings: boolean[] = []
+    const output: number[] = []
+    let settled!: () => void
+    const unconfirmed = new Promise<void>(resolve => { settled = resolve })
+    const engine = new ZmodemEngine({
+      read: async function*(){}, send: () => false, resize: () => {}, beginTransfer: async () => 'lease',
+      writeTransfer: async () => {}, endTransfer: async abort => { endings.push(abort) },
+    }, 'test', 1, async chunk => { output.push(...chunk) }, view => {
+      if (view.phase === 'unconfirmed') settled()
+    }, { ...terminalFileGateway, cancel: async () => {} })
+    try {
+      await engine.consume(init)
+      output.length = 0
+      await engine.consume(Uint8Array.from(header.build('ZFIN').to_hex()))
+      if (trailing) await engine.consume(new TextEncoder().encode(trailing))
+      await unconfirmed
+      expect(engine.active).toBe(false)
+      expect(engine.view.files).toBe(0)
+      expect(endings).toEqual([false])
+      expect(new TextDecoder().decode(Uint8Array.from(output))).toBe(trailing)
+      await engine.consume(init)
+      expect(engine.active).toBe(true)
+      await engine.consume(Uint8Array.from([...header.build('ZFIN').to_hex(),79,79]))
+      await Bun.sleep(0)
+      expect(engine.view.phase).toBe('completed')
+    } finally { await engine.dispose() }
+  }))
+}, 6500)
+
 const realTest=process.env.YAARE_ZMODEM_TEST==='1'?test:test.skip
 test('ZFIN, OO and trailing terminal text finish correctly across coalesced or split frames',async()=>{
  const Zmodem=(await import('zmodem.js')).default,header=require('zmodem.js/src/zheader').Header
@@ -75,14 +108,28 @@ async function fixture(mode:'receive'|'send',failCommit=false,pty=false,options:
  const child=pty?spawn(join(process.cwd(),'build','zmodem-pty.exe'),[mode,remote],{stdio:['pipe','pipe','pipe'],env:{...process.env,YAARE_OPENSSH_FINGERPRINT:fingerprints,YAARE_ZMODEM_SHELL:options.shell??'',YAARE_ZMODEM_NO_SFTP:options.noSFTP?'1':''}}):spawn(docker,['exec','-i','--user','yaaretest','--workdir',remote,container,...args],{stdio:['pipe','pipe','pipe']})
  let diagnostic='';child.stderr.on('data',data=>{diagnostic=(diagnostic+data.toString()).slice(-2048)})
  let ended=false;const exited=new Promise<number|null>((resolve,reject)=>{child.once('error',reject);child.once('exit',code=>{ended=true;resolve(code)})})
- const wire=async(bytes:Uint8Array)=>{if(options.delay)await new Promise(r=>setTimeout(r,options.delay));await new Promise<void>((resolve,reject)=>child.stdin.write(Buffer.from(bytes),e=>e?reject(e):resolve()))}
+ let finalReplySent=false
+ const finalBytes:number[]=[]
+ const wire=async(bytes:Uint8Array)=>{
+  if(mode==='receive'&&bytes.length>=6&&[42,42,24,66,48,56].every((value,index)=>bytes[index]===value))finalReplySent=true
+  if(options.delay)await new Promise(r=>setTimeout(r,options.delay));await new Promise<void>((resolve,reject)=>child.stdin.write(Buffer.from(bytes),e=>e?reject(e):resolve()))}
  let engine:ZmodemEngine,peerPrompt:(()=>void)|undefined
  engine=new ZmodemEngine({read:async function*(){},send:()=>false,resize:()=>{},beginTransfer:async()=>'lease',writeTransfer:wire,onRemotePrompt:callback=>{peerPrompt=callback;return()=>{peerPrompt=undefined}},endTransfer:async abort=>{if(abort&&!ended)await wire(Uint8Array.from([24,24,24,24,24,24,24,24,8,8,8,8,8,8,8,8])).catch(()=>{});if(pty)child.stdin.end()}},'test',1,async()=>{},next=>{view=next;if(accepting)return;if(next.phase==='offer'){accepting=true;void engine.chooseFolder().then(()=>engine.receive()).finally(()=>{accepting=false})}else if(next.phase==='choose'){accepting=true;void engine.upload().finally(()=>{accepting=false})}},gateway)
  const timer=setTimeout(()=>child.kill(),options.bytes||options.delay?22000:9000)
  try{
-  let carry='';const decoder=new TextDecoder();for await(const packet of child.stdout){if(!pty){await engine.consume(new Uint8Array(packet));continue};carry+=decoder.decode(packet,{stream:true});for(;;){const at=carry.indexOf('\n');if(at<0)break;const event=JSON.parse(carry.slice(0,at));carry=carry.slice(at+1);if(event.type==='output'&&event.data)await engine.consume(decodeBase64(event.data));else if(event.type==='directory'&&event.directory?.ready)peerPrompt?.()}} 
+  let carry='';const decoder=new TextDecoder();for await(const packet of child.stdout){if(!pty){await engine.consume(new Uint8Array(packet));continue};carry+=decoder.decode(packet,{stream:true});for(;;){const at=carry.indexOf('\n');if(at<0)break;const event=JSON.parse(carry.slice(0,at));carry=carry.slice(at+1);if(event.type==='output'&&event.data){
+    const bytes=decodeBase64(event.data)
+    if(finalReplySent&&finalBytes.length<2)finalBytes.push(...bytes.slice(0,2-finalBytes.length))
+    await engine.consume(bytes)
+   }else if(event.type==='directory'&&event.directory?.ready)peerPrompt?.()}}
   const code=await exited;await new Promise(r=>setTimeout(r,80));if(options.noSFTP)expect(diagnostic).toContain('SFTP_DENIED_CONFIRMED')
-  if(failCommit){expect(code).not.toBe(0);expect(view?.phase).toBe('failed');expect(await readFile(target)).toEqual(original);expect(commits).toBe(0)}else{expect(code).toBe(0);expect(view?.phase,view?.error.slice(0,300)).toBe('completed');expect(view?.files).toBe(1);if(mode==='receive'){expect(await readFile(target)).toEqual(Buffer.from(data));expect(commits).toBe(1);expect(maximumChunk).toBeLessThanOrEqual(65536)}else{command(['cp',container+':'+remote+'/selected.bin',join(root,'remote-result.bin')]);expect(await readFile(join(root,'remote-result.bin'))).toEqual(Buffer.from(data))}}
+  if(failCommit){expect(code).not.toBe(0);expect(view?.phase).toBe('failed');expect(await readFile(target)).toEqual(original);expect(commits).toBe(0)}else{expect(code).toBe(0)
+   if(pty&&mode==='receive'&&view?.phase==='unconfirmed'){
+    expect(finalReplySent).toBe(true)
+    expect(finalBytes).not.toEqual([79,79])
+    expect(engine.active).toBe(false)
+   }else expect(view?.phase,view?.error.slice(0,300)).toBe('completed')
+   expect(view?.files).toBe(1);if(mode==='receive'){expect(await readFile(target)).toEqual(Buffer.from(data));expect(commits).toBe(1);expect(maximumChunk).toBeLessThanOrEqual(65536)}else{command(['cp',container+':'+remote+'/selected.bin',join(root,'remote-result.bin')]);expect(await readFile(join(root,'remote-result.bin'))).toEqual(Buffer.from(data))}}
  }finally{clearTimeout(timer);child.kill();await engine.dispose();if(/^\/home\/yaaretest\/files\/yaare-zmodem-[0-9a-f-]+$/.test(remote))command(['exec','--user','yaaretest',container,'rm','-rf',remote]);const expected=resolve(tmpdir())+require('node:path').sep+'yaare-zmodem-';if(!resolve(root).startsWith(expected))throw Error('unsafe test cleanup');await rm(root,{recursive:true,force:true})}
 }
 realTest('real lrzsz receive streams to disk before ACK and commits identical binary bytes',async()=>{await fixture('receive')},15000)

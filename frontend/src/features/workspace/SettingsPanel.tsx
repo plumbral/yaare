@@ -37,7 +37,8 @@ function SettingRow({ label, controlId, description, children, divider = false }
 }) {
   return <Stack direction="horizontal" align="center" justify="between" wrap="wrap" gap={3} paddingBlock={3}
     style={divider ? { borderBlockEnd: 'var(--border-width) solid var(--color-border)' } : undefined}>
-    <StackItem size="fill" style={{ flexBasis: 'calc(var(--spacing-10) * 4)' }}>
+    <StackItem size="fill" style={{ flexBasis: 'calc(var(--spacing-10) * 4)', display: 'flex', alignItems: 'baseline',
+      flexWrap: 'wrap', columnGap: 'var(--spacing-2)', rowGap: 'var(--spacing-1)' }}>
       {controlId ? <label htmlFor={controlId}><Text type="label">{label}</Text></label> : <Text type="label">{label}</Text>}
       {description && <Text type="supporting" color="secondary" id={controlId + '-hint'}>{description}</Text>}
     </StackItem>

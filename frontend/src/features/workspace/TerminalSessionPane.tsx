@@ -1,10 +1,10 @@
-import { lazy, memo, Suspense, useCallback, useMemo, type ComponentProps } from 'react'
+import { lazy, memo, Suspense, useCallback, type ComponentProps } from 'react'
 import { Text } from '@astryxdesign/core/Text'
 import { usePaneSSH, type PaneSSHSource } from '../connections/useSSHSessions'
 import { useLocale } from '../../shared/i18n/locale'
-import { localizeMessage, tr } from '../../shared/i18n/messages'
+import { tr } from '../../shared/i18n/messages'
 import TerminalPane from '../terminal/TerminalPane'
-import { reconnectWaitMessage } from './sessionConnection'
+import { resolveSessionConnectionPrompt } from './sessionConnectionPrompt'
 import type { Session } from './mockGateway'
 
 const SessionLogWorkspace = lazy(() => import('./SessionLogWorkspace'))
@@ -14,7 +14,7 @@ const RemoteDesktopWorkspace = lazy(() => import('./RemoteDesktopWorkspace'))
 type TerminalProps = ComponentProps<typeof TerminalPane>
 type Props = Pick<TerminalProps, 'tabId' | 'focused' | 'mode' | 'terminalPalette' | 'fontSize' |
   'fontFamily' | 'fallbackFont' | 'lineHeight' | 'scrollback' | 'cursorBlink' | 'screenReaderMode' | 'onFileGuard' |
-  'onProtection' | 'onReady' | 'onFocusAvailable' | 'onError' | 'onActionError'> & {
+  'onProtection' | 'onReady' | 'onFocusAvailable' | 'onZmodemUpload' | 'onError' | 'onActionError'> & {
   session: Session
   source: PaneSSHSource
   shown: boolean
@@ -28,35 +28,22 @@ type Props = Pick<TerminalProps, 'tabId' | 'focused' | 'mode' | 'terminalPalette
   closeLogs: (id: string) => void
   connect: (id: string) => void
   disconnect: (id: string) => void
-  retry: (id: string) => void
 }
 
 export default memo(function TerminalSessionPane({
   session, source, shown, desktopLoaded, desktopOpen, logsOpen,
-  diffOpen, diffRequest, showTerminal, closeDiff, closeLogs, connect, disconnect, retry, ...terminal
+  diffOpen, diffRequest, showTerminal, closeDiff, closeLogs, connect, disconnect, ...terminal
 }: Props) {
-  const language = useLocale()
+  useLocale()
   const id = session.id
   const live = usePaneSSH(source, id)
-  const { phase, message, retry: waiting, automatic } = live ?? {}
-  const status = waiting ? 'reconnecting' : session.connection?.status ?? 'idle'
-  const connecting = status === 'connecting' || status === 'reconnecting'
   const onConnect = useCallback(() => connect(id), [connect, id])
   const onDisconnect = useCallback(() => disconnect(id), [disconnect, id])
-  const onRetryNow = useCallback(() => retry(id), [retry, id])
   const onCloseDesktop = useCallback(() => showTerminal(id), [showTerminal, id])
   const onCloseDiff = useCallback(() => closeDiff(id), [closeDiff, id])
   const onCloseLogs = useCallback(() => closeLogs(id), [closeLogs, id])
-  const connectionPrompt = useMemo<TerminalProps['connectionPrompt']>(() => status === 'connected' ? undefined : {
-    status,
-    message: waiting ? reconnectWaitMessage(waiting, localizeMessage(message ?? ''))
-      : connecting && phase === 'hostkey' ? tr("等待指纹确认")
-      : connecting && phase === 'authentication' ? tr("等待认证")
-      : connecting || status === 'failed' ? localizeMessage(message ?? '') : undefined,
-    onAction: connecting ? onDisconnect : onConnect,
-    waiting, automatic: connecting && !!automatic, onRetryNow,
-  }, [status, waiting, connecting, phase, message, automatic, onConnect, onDisconnect, onRetryNow, language])
-  const connected = phase === 'connected'
+  const connectionPrompt = resolveSessionConnectionPrompt(session.connection?.status, live, onConnect, onDisconnect)
+  const connected = live?.phase === 'connected'
   const attempt = live?.attempt ?? 0
 
   return <>

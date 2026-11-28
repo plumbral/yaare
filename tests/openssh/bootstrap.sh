@@ -6,6 +6,7 @@ echo 'yaaretest:Yaare-OpenSSH-Test-Only!' | chpasswd
 id yaarenteractive >/dev/null 2>&1 || useradd -m -s /bin/bash yaarenteractive
 echo 'yaarenteractive:Yaare-OpenSSH-Test-Only!' | chpasswd
 mkdir -p /run/sshd /home/yaaretest/files /home/yaaretest/readonly
+printf 'Yaare OpenSSH fixture MOTD\n' > /etc/motd
 printf 'Yaare SFTP test\n中文与 Emoji 🦂\n' > /home/yaaretest/files/hello.txt
 dd if=/dev/zero of=/home/yaaretest/files/large.bin bs=1M count=16 status=none
 chown -R yaaretest:yaaretest /home/yaaretest/files

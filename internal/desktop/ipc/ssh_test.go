@@ -19,6 +19,9 @@ func TestSSHServiceRejectsCallsWithoutAnOwnedPage(t *testing.T) {
 	if service.ChangeDirectory(ctx, "session", 1, "/tmp") == nil {
 		t.Fatal("unowned page changed a terminal directory")
 	}
+	if service.EnableShellIntegration(ctx, "session", 1) == nil {
+		t.Fatal("unowned page enabled shell integration")
+	}
 	if len(service.runs) != 0 {
 		t.Fatal("rejected call created a session")
 	}

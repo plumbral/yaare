@@ -1,9 +1,10 @@
 import { tr } from '../i18n/messages'
 import { useLocale, getLanguage } from '../i18n/locale'
 import { Channel } from 'mygo-runtime'
-import { SSHService, type SSHConnectRequest, type Event } from '../generated/mygo'
+import { SSHService, type SSHConnectRequest, type BashIntegrationPreview, type Event } from '../generated/mygo'
 import type { TerminalTransport } from '../../features/terminal/remoteOutput'
 import { decodeBase64,encodeBase64 as base64 } from './base64'
+import { browserMode } from './browserRuntime'
 
 export type SSHEvent = Event
 const resizeIntervalMs = 100
@@ -14,6 +15,9 @@ export interface SSHTransport extends TerminalTransport {
   answerAuthentication: (id:string,answers:string[])=>Promise<boolean>
   setForward:(ruleId:string,start:boolean)=>Promise<boolean>
   changeDirectory:(path:string)=>Promise<void>
+  enableShellIntegration:()=>Promise<void>
+  previewBashIntegration:()=>Promise<BashIntegrationPreview>
+  applyBashIntegration:(preview:BashIntegrationPreview)=>Promise<void>
   sendBinary: (data: string) => boolean
 }
 
@@ -130,7 +134,18 @@ export function createSSHTransport(request: SSHConnectRequest, onEvent: (event: 
     },
     async endTransfer(abort){await transferBegin?.catch(()=>{});const token=transferLease;transferLease='';try{if(token)await SSHService.terminalTransferEnd(sessionId,attempt,token,abort)}finally{transferPending=false}},
     onRemotePrompt(callback){remotePrompt=callback;return()=>{if(remotePrompt===callback)remotePrompt=undefined}},
-    async startZmodemUpload(){if(closed||!writable||transferPending||transferLease)throw Error(tr("终端当前不可用于文件上传。"));await writes;await SSHService.startZmodemUpload(sessionId,attempt)},
+    async enableShellIntegration() {
+      await writes
+      if (closed || !writable || transferPending || transferLease) throw Error(tr("会话当前不可用，请稍后重试。"))
+      await SSHService.enableShellIntegration(sessionId, attempt)
+    },
+    previewBashIntegration: () => SSHService.previewBashIntegration(sessionId, attempt),
+    applyBashIntegration: preview => SSHService.applyBashIntegration(sessionId, attempt, preview.action, preview.revision),
+    startZmodemUpload: browserMode() ? undefined : async () => {
+      if (closed || !writable || transferPending || transferLease) throw Error(tr("终端当前不可用于文件上传。"))
+      await writes
+      await SSHService.startZmodemUpload(sessionId, attempt)
+    },
     resize(columns, rows) {
       if (closed || ended) return
       dimensions = { columns, rows }

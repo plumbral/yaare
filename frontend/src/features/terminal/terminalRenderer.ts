@@ -3,6 +3,12 @@ import type { Terminal } from '@xterm/xterm'
 
 type LoadWebgl = () => Promise<() => WebglAddon>
 
+export function observeTerminalGeometry(observer: Pick<ResizeObserver, 'observe'>, mount: HTMLElement) {
+  observer.observe(mount)
+  const screen = mount.querySelector('.xterm-screen')
+  if (screen) observer.observe(screen)
+}
+
 const loadWebgl: LoadWebgl = async () => {
   const { WebglAddon } = await import('@xterm/addon-webgl')
   return () => new WebglAddon()

@@ -1,10 +1,14 @@
 import type { ITheme, Terminal } from '@xterm/xterm'
 
-type TerminalFocusOptions = { active: boolean; focused?: boolean; cursorBlink: boolean; screenReaderMode?: boolean }
+type TerminalFocusOptions = { active: boolean; focused?: boolean; cursorBlink: boolean; screenReaderMode?: boolean; inputEnabled?: boolean }
 
 export function terminalFocusOptions(state: TerminalFocusOptions) {
   const focused = state.active && state.focused !== false
-  return { cursorBlink: focused && state.cursorBlink, screenReaderMode: focused && !!state.screenReaderMode }
+  return {
+    cursorBlink: focused && state.inputEnabled !== false && state.cursorBlink,
+    cursorInactiveStyle: state.inputEnabled === false ? 'none' as const : 'underline' as const,
+    screenReaderMode: focused && !!state.screenReaderMode,
+  }
 }
 
 export function createTerminalAppearance(terminal: Pick<Terminal, 'options' | 'refresh' | 'rows'>, initial: ITheme) {

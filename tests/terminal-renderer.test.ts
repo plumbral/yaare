@@ -1,7 +1,21 @@
 import { expect, test } from 'bun:test'
+import { parseHTML } from 'linkedom'
 import type { WebglAddon } from '@xterm/addon-webgl'
 import type { Terminal } from '@xterm/xterm'
-import { createTerminalRenderer } from '../frontend/src/features/terminal/terminalRenderer'
+import { createTerminalRenderer, observeTerminalGeometry } from '../frontend/src/features/terminal/terminalRenderer'
+
+test('a pane refits on changes to its container or its rendered cell grid', () => {
+  const { document } = parseHTML('<main></main>')
+  const seen: Element[] = []
+  const observer = { observe: (target: Element) => { seen.push(target) } }
+  const mount = document.createElement('div')
+  mount.innerHTML = '<div class="xterm"><div class="xterm-screen"></div></div>'
+  document.querySelector('main')!.append(mount.cloneNode(true), mount)
+  observeTerminalGeometry(observer, mount)
+  expect(seen).toHaveLength(2)
+  expect(seen).toContain(mount)
+  expect(seen).toContain(mount.querySelector('.xterm-screen')!)
+})
 
 function fixture({ fail = false } = {}) {
   const loaded: WebglAddon[] = []

@@ -10,7 +10,7 @@ export const host = { authentication: 'key', useAgent: true, id: 'first', name: 
 export const other = { ...host, id: 'second', name: '東京 · Logs', address: '2001:db8::8' }
 export const fixture = {
   saved: undefined as SessionLayout | undefined, selectedText: '', revision: 1,
-  dialed: [] as {address: string; id: string}[],
+  dialed: [] as {address: string; id: string; drop: () => void}[],
   sync: (_event: unknown) => {},
 }
 const restore: (() => void)[] = []
@@ -67,8 +67,9 @@ export function installWorkbenchDom() {
             case 'FileService.Tasks': return { tasks: [], concurrency: 1 }
             case 'SSHService.Connect': {
               const request = args[0] as {address: string; sessionId: string}
-              fixture.dialed.push({address: request.address, id: request.sessionId})
-              return (args[1] as {end: Promise<void>}).end
+              const channel = args[1] as { end: Promise<void>; close: () => void }
+              fixture.dialed.push({address: request.address, id: request.sessionId, drop: channel.close})
+              return channel.end
             }
             case 'WorkspaceService.Load': return { ready: true, snapshot: { revision: fixture.revision, hosts: [host, other], groups: ['未分组'], commands: [], commandGroups: ['未分组'] } }
             case 'SessionLayoutService.Load': return fixture.saved

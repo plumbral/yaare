@@ -2,16 +2,25 @@ package sshclient
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"io"
 	"net/url"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
 
 type DirectoryState struct {
-	Path  string `json:"path"`
-	Ready bool   `json:"ready"`
+	Path       string `json:"path"`
+	Ready      bool   `json:"ready"`
+	Integrated bool   `json:"integrated,omitempty"`
+}
+
+type shellIntegrationAttempt struct {
+	ack      chan struct{}
+	deadline time.Time
 }
 
 func validDirectory(value string) bool {
@@ -33,6 +42,41 @@ type directoryDecoder struct {
 	overflow    bool
 	current     DirectoryState
 	frameEpoch  uint64
+	persistent  *persistentDirectoryReport
+}
+
+type persistentDirectoryReport struct {
+	nonce, tag, path   string
+	epoch              uint64
+	checking, verified bool
+}
+
+func (d *directoryDecoder) persistentFrame(frame string) *DirectoryState {
+	nonce, rest, ok := strings.Cut(frame, ";")
+	if !ok || !bashNoncePattern.MatchString(nonce) {
+		return nil
+	}
+	tag, raw, ok := strings.Cut(rest, ";")
+	if !ok || !bashTokenPattern.MatchString(tag) {
+		return nil
+	}
+	path, err := url.PathUnescape(raw)
+	if err != nil || !validDirectory(path) {
+		return nil
+	}
+	if d.persistent == nil {
+		d.persistent = &persistentDirectoryReport{nonce: nonce, tag: tag}
+	}
+	p := d.persistent
+	if p.nonce != nonce || p.tag != tag {
+		return nil
+	}
+	if !p.verified {
+		p.path, p.epoch = path, d.frameEpoch
+		return nil
+	}
+	d.current = DirectoryState{Path: path, Ready: true, Integrated: true}
+	return &d.current
 }
 
 func (d *directoryDecoder) feed(data []byte, epoch uint64) *DirectoryState {
@@ -109,22 +153,50 @@ func (d *directoryDecoder) feed(data []byte, epoch uint64) *DirectoryState {
 }
 
 func (d *directoryDecoder) decode(frame string) *DirectoryState {
+	if raw, ok := strings.CutPrefix(frame, "777;yaare;bash;"); ok {
+		return d.persistentFrame(raw)
+	}
 	private := "777;yaare;" + d.token + ";"
 	if d.token != "" && strings.HasPrefix(frame, private) {
 		value, err := url.PathUnescape(strings.TrimPrefix(frame, private))
 		if err == nil && validDirectory(value) {
-			d.current = DirectoryState{Path: value, Ready: true}
+			if d.persistent != nil {
+				d.persistent.path = ""
+			}
+			d.current = DirectoryState{Path: value, Ready: true, Integrated: true}
 			return &d.current
 		}
 	}
 	if strings.HasPrefix(frame, "7;") {
 		u, err := url.Parse(strings.TrimPrefix(frame, "7;"))
 		if err == nil && u.Scheme == "file" && u.User == nil && u.Port() == "" && u.RawQuery == "" && u.Fragment == "" && (u.Hostname() == "" || strings.EqualFold(u.Hostname(), d.host)) && validDirectory(u.Path) {
-			d.current = DirectoryState{Path: u.Path}
+			if d.persistent != nil {
+				d.persistent.path = ""
+			}
+			d.current = DirectoryState{Path: u.Path, Integrated: d.current.Integrated}
 			return &d.current
 		}
 	}
 	return nil
+}
+
+func (s *Session) verifyPersistentDirectory(p *persistentDirectoryReport) {
+	tag, err := s.persistentDirectoryToken(s.ctx, p.nonce)
+	if err != nil || tag != p.tag {
+		return
+	}
+	s.outputMu.Lock()
+	defer s.outputMu.Unlock()
+	p.verified = true
+	value := s.directoryDecoder.current
+	value.Integrated = true
+	if p.path != "" {
+		value.Path, value.Ready = p.path, true
+	}
+	s.directoryDecoder.current = value
+	if s.ctx.Err() == nil && s.flushLocked() == nil {
+		s.reportDirectory(value, p.epoch)
+	}
 }
 
 func (s *Session) scheduleDirectoryEmitLocked() {
@@ -173,6 +245,7 @@ func (s *Session) stopDirectoryNotifications() {
 
 func (s *Session) reportDirectory(value DirectoryState, epoch uint64) {
 	s.mu.Lock()
+	value.Integrated = value.Integrated || s.directory.Integrated
 	if epoch != s.inputEpoch {
 		value.Ready = false
 	}
@@ -181,6 +254,10 @@ func (s *Session) reportDirectory(value DirectoryState, epoch uint64) {
 		return
 	}
 	s.directory = value
+	if value.Integrated && s.integration != nil {
+		close(s.integration.ack)
+		s.integration = nil
+	}
 	s.scheduleDirectoryEmitLocked()
 	s.mu.Unlock()
 }
@@ -222,30 +299,61 @@ func (s *Session) ChangeDirectory(value string) error {
 
 func shellQuote(value string) string { return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'" }
 
-func directoryIntegrationAllowed(serverVersion []byte) bool {
-	version := strings.ToLower(string(serverVersion))
-	return strings.Contains(version, "openssh") && !strings.Contains(version, "windows")
+func directoryHookCommand(token string) string {
+	name := "__yaare_directory_" + token
+	script := `if ! declare -F NAME >/dev/null; then ` +
+		`NAME() { local result=$? value= char index LC_ALL=C; ` +
+		`for ((index=0; index<${#PWD}; index++)); do char=${PWD:index:1}; ` +
+		`case "$char" in [a-zA-Z0-9/._~-]) value+=$char;; *) printf -v char '%%%02X' "'$char"; value+=$char;; esac; done; ` +
+		`printf '\033]777;yaare;TOKEN;%s\007' "$value"; return "$result"; }; ` +
+		`if [[ $(declare -p PROMPT_COMMAND 2>/dev/null) =~ ^declare\ -[^[:space:]]*a ]]; then PROMPT_COMMAND+=(NAME); ` +
+		`else PROMPT_COMMAND+=$'\nNAME'; fi; fi`
+	script = strings.NewReplacer("NAME", name, "TOKEN", token).Replace(script)
+	return ` if [ -n "${BASH_VERSION-}" ]; then eval ` + shellQuote(script) + "; fi\r"
 }
 
-func directoryShellCommand(token string) string {
-	inner := `__yaare_directory_report() {
-  local result=$? value= char index LC_ALL=C
-  for ((index=0; index<${#PWD}; index++)); do
-    char=${PWD:index:1}
-    case "$char" in [a-zA-Z0-9/._~-]) value+=$char;; *) printf -v char "%%%02X" "'$char"; value+=$char;; esac
-  done
-  printf "\033]777;yaare;TOKEN;%s\007" "$value"
-  return "$result"
-}
-export -f __yaare_directory_report
-if [[ -n ${PROMPT_COMMAND:-} ]]; then
-  PROMPT_COMMAND+=$'\n__yaare_directory_report'
-else
-  PROMPT_COMMAND=__yaare_directory_report
-fi
-export PROMPT_COMMAND
-exec "$BASH" -l`
-	inner = strings.ReplaceAll(inner, "TOKEN", token)
-	script := "case \"${SHELL:-/bin/sh}\" in\n*/bash) exec \"$SHELL\" -c " + shellQuote(inner) + ";;\n*) exec \"${SHELL:-/bin/sh}\" -l;;\nesac"
-	return "/bin/sh -c " + shellQuote(script)
+func (s *Session) EnableShellIntegration(ctx context.Context) error {
+	s.writeMu.Lock()
+	s.mu.Lock()
+	if !s.connected || s.stdin == nil || s.terminalTransfer != "" || s.ctx.Err() != nil || ctx.Err() != nil || s.directoryDecoder.token == "" {
+		s.mu.Unlock()
+		s.writeMu.Unlock()
+		return errors.New("SSH 会话已结束或不可用。")
+	}
+	if s.directory.Integrated {
+		s.mu.Unlock()
+		s.writeMu.Unlock()
+		return nil
+	}
+	attempt := s.integration
+	install := attempt == nil || !time.Now().Before(attempt.deadline)
+	if install {
+		attempt = &shellIntegrationAttempt{ack: make(chan struct{}), deadline: time.Now().Add(5 * time.Second)}
+		s.integration = attempt
+	}
+	stdin, token := s.stdin, s.directoryDecoder.token
+	s.mu.Unlock()
+	if install {
+		s.directoryBusy()
+		command := directoryHookCommand(token)
+		n, err := io.WriteString(stdin, command)
+		if err != nil || n != len(command) {
+			s.cancel()
+			s.writeMu.Unlock()
+			return errors.New("SSH 会话已结束或不可用。")
+		}
+	}
+	s.writeMu.Unlock()
+	timer := time.NewTimer(time.Until(attempt.deadline))
+	defer timer.Stop()
+	select {
+	case <-attempt.ack:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.ctx.Done():
+		return errors.New("SSH 会话已结束或不可用。")
+	case <-timer.C:
+		return errors.New("未收到 Bash 提示符确认，请在空命令行重试。")
+	}
 }

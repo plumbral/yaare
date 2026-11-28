@@ -74,6 +74,16 @@ export interface BackupResult {
   restorePoint: string;
 }
 
+export interface BashIntegrationPreview {
+  action: string;
+  profilePath: string;
+  keyPath: string;
+  block: string;
+  revision: string;
+  profileChange: string;
+  keyChange: string;
+}
+
 export interface BilateralAction {
   path: string;
   kind: string;
@@ -265,6 +275,7 @@ export interface Device {
 export interface DirectoryState {
   path: string;
   ready: boolean;
+  integrated?: boolean;
 }
 
 export interface DirectorySyncRequest {
@@ -954,18 +965,21 @@ export const IdentityService = {
 export const SSHService = {
   agentInfo: bind<[], AgentInfo>("SSHService.AgentInfo", () => []),
   answerAuthentication: bind<[string, number, string, string[]], boolean>("SSHService.AnswerAuthentication", (id: string, attempt: number, challengeID: string, answers: string[]) => [id, attempt, challengeID, answers]),
+  applyBashIntegration: bind<[string, number, string, string], void>("SSHService.ApplyBashIntegration", (id: string, attempt: number, action: string, revision: string) => [id, attempt, action, revision]),
   broadcast: bind<[BroadcastRequest], BroadcastResult>("SSHService.Broadcast", (request: BroadcastRequest) => [request]),
   broadcastStatus: bind<[string], BroadcastResult>("SSHService.BroadcastStatus", (id: string) => [id]),
   changeDirectory: bind<[string, number, string], void>("SSHService.ChangeDirectory", (id: string, attempt: number, path: string) => [id, attempt, path]),
   confirmHost: bind<[string, number, string, string], boolean>("SSHService.ConfirmHost", (id: string, attempt: number, challengeID: string, decision: string) => [id, attempt, challengeID, decision]),
   connect: bind<[SSHConnectRequest, Channel<Event>], void>("SSHService.Connect", (request: SSHConnectRequest, events: Channel<Event>) => [request, events]),
   disconnect: bind<[string, number], void>("SSHService.Disconnect", (id: string, attempt: number) => [id, attempt]),
+  enableShellIntegration: bind<[string, number], void>("SSHService.EnableShellIntegration", (id: string, attempt: number) => [id, attempt]),
   logDelete: bind<[string], void>("SSHService.LogDelete", (id: string) => [id]),
   logExport: bind<[string], boolean>("SSHService.LogExport", (id: string) => [id]),
   logList: bind<[], SessionlogInfo[]>("SSHService.LogList", () => []),
   logRead: bind<[Query], Page>("SSHService.LogRead", (q: Query) => [q]),
   logStart: bind<[string, number], SessionlogInfo>("SSHService.LogStart", (id: string, attempt: number) => [id, attempt]),
   logStop: bind<[string, number], SessionlogInfo>("SSHService.LogStop", (id: string, attempt: number) => [id, attempt]),
+  previewBashIntegration: bind<[string, number], BashIntegrationPreview>("SSHService.PreviewBashIntegration", (id: string, attempt: number) => [id, attempt]),
   probeServerSystem: bind<[string, number], ServerSystem | null>("SSHService.ProbeServerSystem", (sessionID: string, attempt: number) => [sessionID, attempt]),
   resize: bind<[string, number, number, number], boolean>("SSHService.Resize", (id: string, attempt: number, columns: number, rows: number) => [id, attempt, columns, rows]),
   setForward: bind<[string, number, string, boolean], boolean>("SSHService.SetForward", (id: string, attempt: number, ruleID: string, start: boolean) => [id, attempt, ruleID, start]),

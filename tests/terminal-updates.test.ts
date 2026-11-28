@@ -1,10 +1,72 @@
 import { expect, test } from 'bun:test'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { parseHTML } from 'linkedom'
+import TerminalPane from '../frontend/src/features/terminal/TerminalPane'
+import { resolveSessionConnectionPrompt } from '../frontend/src/features/workspace/sessionConnectionPrompt'
 import type { ITheme } from '@xterm/xterm'
 import { createTerminalAppearance, terminalFocusOptions } from '../frontend/src/features/terminal/terminalAppearance'
 import { createTerminalFocus, focusTerminalInput, shouldFocusPanePointer } from '../frontend/src/features/terminal/terminalFocus'
+import { activateTerminalLink } from '../frontend/src/features/terminal/terminalLinks'
+import { openWebLink } from '../frontend/src/shared/bridge/application'
+import { tr } from '../frontend/src/shared/i18n/messages'
 import { hidePaneView, setPaneView, terminalWorkspaceReducer as reduce, type TerminalWorkspace } from '../frontend/src/features/workspace/terminalLayout'
 import { createRememberBusyStore } from '../frontend/src/features/workspace/useRememberWorkspace'
 import { initialHosts } from '../frontend/src/features/workspace/mockGateway'
+
+test('every empty connection state keeps its actions outside the inert terminal', () => {
+  const noop = () => {}
+  for (const live of [undefined, { phase: 'connecting' }, { phase: 'failed' }, { phase: 'disconnected' },
+    { phase: 'connecting', automatic: true }, { phase: 'failed', retry: 'waiting' }, { phase: 'failed', retry: 'offline' }] as const) {
+    const prompt = resolveSessionConnectionPrompt('idle', live && { ...live, attempt: 2 }, noop, noop)!
+    const host = initialHosts[0]!
+    const markup = renderToStaticMarkup(createElement(TerminalPane, { host, id: 'test', connectionPrompt: prompt,
+      active: true, hideToolbar: true, mode: 'dark', fontSize: 14, cursorBlink: true, scrollback: 1000, onReady: noop, onError: noop }))
+    const { document } = parseHTML(markup)
+    const buttons = Array.from(document.querySelectorAll('button')).filter(button => !button.closest('[inert]'))
+    expect(buttons.map(button => button.textContent)).toEqual(prompt.actions.map(action => action.label))
+    const terminal = document.querySelector(`[aria-label="${tr('SSH 终端 {p0}', host.name)}"]`)
+    expect(terminal?.closest('[inert]')).toBeTruthy()
+  }
+})
+
+test('terminal links open only on a modified primary click', () => {
+  const url = 'https://browser.geekbench.com/v5/cpu/24852266'
+  const opened: string[] = []
+  const activate = (button: number, ctrlKey = false, metaKey = false) => {
+    activateTerminalLink({ button, ctrlKey, metaKey } as MouseEvent, url, uri => opened.push(uri))
+  }
+  activate(0)
+  activate(1, true)
+  activate(2, false, true)
+  expect(opened).toEqual([])
+  activate(0, true)
+  activate(0, false, true)
+  expect(opened).toEqual([url, url])
+})
+
+test('web links open absolute HTTP and HTTPS URLs with an isolated opener', () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'window')
+  const opened: string[][] = []
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { open: (...args: string[]) => opened.push(args) },
+  })
+  try {
+    for (const uri of ['not a URL', '/results', 'file:///tmp/report', 'javascript:void(0)', 'ssh://example.org']) {
+      openWebLink(uri)
+    }
+    openWebLink('http://localhost:8080/results?q=1#score')
+    openWebLink('https://example.org/report')
+    expect(opened).toEqual([
+      ['http://localhost:8080/results?q=1#score', '_blank', 'noopener,noreferrer'],
+      ['https://example.org/report', '_blank', 'noopener,noreferrer'],
+    ])
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'window', previous)
+    else Reflect.deleteProperty(globalThis, 'window')
+  }
+})
 
 test('only the active focused xterm reads output, and toggling this option preserves scrollback', async () => {
   const { Terminal } = await import('@xterm/xterm')
@@ -18,6 +80,24 @@ test('only the active focused xterm reads output, and toggling this option prese
       terminal.options = terminalFocusOptions({ ...focus, active, focused, screenReaderMode: enabled })
       expect(terminal.options.screenReaderMode).toBe(expected)
       expect(terminal.buffer.active.getLine(0)?.translateToString(true)).toBe('retained shell history')
+    }
+  } finally { terminal.dispose() }
+})
+
+test('disconnecting suppresses cursor blink until input resumes in the focused terminal', async () => {
+  const { Terminal } = await import('@xterm/xterm')
+  const terminal = new Terminal()
+  try {
+    await new Promise<void>(resolve => terminal.write('previous output', resolve))
+    for (const [inputEnabled, focused, cursorBlink, expected] of [
+      [false, true, true, false], [true, true, true, true], [true, false, true, false],
+      [false, true, true, false], [true, true, false, false], [true, true, true, true],
+    ] as const) {
+      terminal.options = terminalFocusOptions({ active: true, inputEnabled, focused, cursorBlink, screenReaderMode: true })
+      expect(terminal.options.cursorBlink).toBe(expected)
+      expect(terminal.options.cursorInactiveStyle).toBe(inputEnabled ? 'underline' : 'none')
+      expect(terminal.options.screenReaderMode).toBe(focused)
+      expect(terminal.buffer.active.getLine(0)?.translateToString(true)).toBe('previous output')
     }
   } finally { terminal.dispose() }
 })

@@ -24,6 +24,7 @@ type Server struct {
 	listener       net.Listener
 	mu             sync.Mutex
 	host           ssh.Signer
+	banner         string
 	authorized     []byte
 	connections    map[net.Conn]bool
 	AuthCalls      atomic.Int32
@@ -62,6 +63,11 @@ func (s *Server) Fingerprint() string {
 	return ssh.FingerprintSHA256(s.host.PublicKey())
 }
 func (s *Server) SetHostKey(key ssh.Signer) { s.mu.Lock(); s.host = key; s.mu.Unlock() }
+func (s *Server) SetBanner(banner string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.banner = banner
+}
 func (s *Server) Authorize(key ssh.PublicKey) {
 	s.mu.Lock()
 	s.authorized = key.Marshal()
@@ -127,6 +133,9 @@ func (s *Server) serve(conn net.Conn) {
 		}
 	}
 	s.mu.Lock()
+	if banner := s.banner; banner != "" {
+		config.BannerCallback = func(ssh.ConnMetadata) string { return banner }
+	}
 	config.AddHostKey(s.host)
 	s.mu.Unlock()
 	server, channels, requests, err := ssh.NewServerConn(conn, config)

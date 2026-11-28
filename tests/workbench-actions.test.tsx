@@ -1,28 +1,43 @@
 import { expect, mock, test } from 'bun:test'
-import { act, createElement, useEffect } from 'react'
+import { act, createElement, useEffect, useLayoutEffect, useRef } from 'react'
 import type { ComponentProps } from 'react'
 import type TerminalPane from '../frontend/src/features/terminal/TerminalPane'
+import type { TerminalController } from '../frontend/src/features/terminal/TerminalPane'
 import type { FileTask } from '../frontend/src/shared/bridge/files'
 import { document, dom, storage, fixture, clipboard, host, other, installWorkbenchDom } from './fixtures/workbench-dom'
 
 installWorkbenchDom()
 
 mock.module('../frontend/src/features/terminal/TerminalPane', () => ({
-  default: function TerminalSurface({ id, host, transport, inputEnabled }: ComponentProps<typeof TerminalPane>) {
+  default: function TerminalSurface({ id, host, transport, inputEnabled, onReady, onFocusAvailable, connectionPrompt }: ComponentProps<typeof TerminalPane>) {
+    const input = useRef<HTMLTextAreaElement>(null)
+    useLayoutEffect(() => {
+      onReady(id, { focus: () => {
+        if (!inputEnabled || !input.current) return false
+        input.current.dataset.focused = 'true'
+        return true
+      } } as TerminalController)
+      if (inputEnabled) onFocusAvailable?.(id)
+      return () => onReady(id, null)
+    }, [id, inputEnabled, onReady, onFocusAvailable])
     useEffect(() => {
       if (!transport) return
       const stop = new AbortController()
       void (async () => { for await (const _bytes of transport.read(stop.signal)) {} })()
       return () => stop.abort()
     }, [transport])
-    return <section className="xterm" data-address={host.address}><textarea data-input={id} data-connected={String(inputEnabled)}/></section>
+    const retry = connectionPrompt?.actions.find(action => action.kind === 'retry')
+    return <section className="xterm" data-address={host.address}>
+      <textarea ref={input} data-input={id} data-connected={String(inputEnabled)}/>
+      {retry && <button data-retry-now="" disabled={retry.disabled} onClick={retry.run}/>}
+    </section>
   },
 }))
 
-async function mountApp(retainSplit = false) {
+async function mountApp(retainSplit = false, tabPosition: 'top' | 'left' = 'top') {
   const { createRoot } = await import('react-dom/client')
   const { default: App } = await import('../frontend/src/app/App')
-  storage.set('yaare.tabs-position', 'top')
+  storage.set('yaare.tabs-position', tabPosition)
   fixture.dialed.length = 0
   fixture.saved = {
     version: 3, format: 1, enabled: retainSplit, view: 'hosts', activeId: retainSplit ? 'left' : '', startOpen: true, startWidth: 256, endWidth: 320,
@@ -45,6 +60,27 @@ async function click(selector: string, detail?: number) {
 }
 let appliedVersion = 0
 const chosen = () => document.querySelector('#session-tab-strip [role=tab][aria-selected="true"]')?.id
+
+test('retry now requests keyboard focus for the reconnected shell', async () => {
+  const close = await mountApp()
+  const nextFrame = () => act(async () => { await new Promise<number>(requestAnimationFrame) })
+  try {
+    await click('#manager-open-first')
+    const first = fixture.dialed[0]!
+    const input = document.querySelector<HTMLTextAreaElement>('textarea[data-input="' + first.id + '"]')!
+    await nextFrame()
+    expect(input.dataset.focused).toBe('true')
+    delete input.dataset.focused
+    await act(async () => first.drop())
+    expect(input.dataset.connected).toBe('false')
+    await click('[data-retry-now]')
+    await nextFrame()
+    expect(fixture.dialed.map(attempt => attempt.id)).toEqual([first.id, first.id])
+    expect(input.dataset.connected).toBe('true')
+    await nextFrame()
+    expect(input.dataset.focused).toBe('true')
+  } finally { await close() }
+})
 
 test('a single mouse click selects, a double click connects, and the terminal owns Ctrl+W', async () => {
   const close = await mountApp()
@@ -81,6 +117,37 @@ test('Enter session returns to the last used shell even after visiting another h
     await click('#manager-open-first')
     expect(chosen()).toBe(last)
     expect(fixture.dialed).toHaveLength(3)
+  } finally { await close() }
+})
+
+test('expanded rail adds a terminal to the requested host and reveals its collapsed tabs', async () => {
+  const close = await mountApp(false, 'left')
+  const add = `[data-new-terminal-for][aria-label="New terminal in ${host.name}"]`
+  const groupToggle = () => [...document.querySelectorAll<HTMLElement>('#session-tab-strip button[aria-expanded]')]
+    .find(button => button.textContent === host.name)
+  try {
+    await click('#manager-open-first')
+    const first = chosen()!
+    await click('#tab-hosts')
+    await click('#manager-open-second')
+    const second = chosen()!
+    expect(document.querySelectorAll('[data-new-terminal-for]')).toHaveLength(2)
+    expect(document.querySelector('#connection-new-terminal')).toBeNull()
+
+    await click(add)
+    expect(fixture.dialed.map(connection => connection.address)).toEqual([host.address, other.address, host.address])
+    expect(chosen()).toBe('tab-terminal-' + fixture.dialed[2]!.id)
+    expect(document.querySelectorAll('[data-new-terminal-for]')).toHaveLength(2)
+
+    await click('#' + second)
+    await act(async () => groupToggle()!.click())
+    expect(groupToggle()?.getAttribute('aria-expanded')).toBe('false')
+    expect(document.getElementById(first)).toBeNull()
+    await click(add)
+    expect(groupToggle()?.getAttribute('aria-expanded')).toBe('true')
+    expect(fixture.dialed.map(connection => connection.address)).toEqual([host.address, other.address, host.address, host.address])
+    expect(chosen()).toBe('tab-terminal-' + fixture.dialed[3]!.id)
+    expect(document.querySelectorAll('#session-tab-strip [role=tab]')).toHaveLength(4)
   } finally { await close() }
 })
 

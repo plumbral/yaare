@@ -4,7 +4,7 @@
 
 # Yaare
 
-[官方網站](https://yaare.app) · [Discord](https://discord.gg/pcpfXrGcA4) · [GitHub](https://github.com/plumbral/yaare)
+**Build with ❤️** | [官方網站](https://yaare.app) · [Discord](https://discord.gg/pcpfXrGcA4) · [GitHub](https://github.com/plumbral/yaare)
 
 </div>
 

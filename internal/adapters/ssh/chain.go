@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/ssh"
 	"yaare/internal/adapters/sshagent"
@@ -306,6 +308,9 @@ func (s *Session) handshake(conn net.Conn, cfg *Config, address string, jump boo
 			pinned = append([]byte(nil), key.Marshal()...)
 			return s.send(Event{Type: "progress", Message: "正在进行 SSH 认证 · " + address})
 		}}
+	if !jump {
+		config.BannerCallback = s.showAuthenticationBanner
+	}
 	config.Auth = append(config.Auth, ssh.RetryableAuthMethod(ssh.KeyboardInteractive(func(name, instruction string, questions []string, echos []bool) ([]string, error) {
 		clock.pause()
 		defer clock.arm()
@@ -337,6 +342,31 @@ func (s *Session) handshake(conn net.Conn, cfg *Config, address string, jump boo
 		s.mu.Unlock()
 	}
 	return ssh.NewClient(cc, chans, requests), nil
+}
+
+func (s *Session) showAuthenticationBanner(message string) error {
+	message = strings.ReplaceAll(message, "\r\n", "\n")
+	message = strings.Map(func(r rune) rune {
+		switch r {
+		case '\r', '\n':
+			return '\n'
+		case '\t':
+			return r
+		}
+		if !unicode.IsGraphic(r) {
+			return utf8.RuneError
+		}
+		return r
+	}, message)
+	data := []byte(strings.ReplaceAll(message, "\n", "\r\n"))
+	for len(data) > 0 {
+		size := min(len(data), 32768)
+		if err := s.send(Event{Type: "output", Data: data[:size]}); err != nil {
+			return err
+		}
+		data = data[size:]
+	}
+	return nil
 }
 
 type timedAgentSigner struct {

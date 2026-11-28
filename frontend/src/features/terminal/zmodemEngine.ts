@@ -19,11 +19,24 @@ export class ZmodemEngine{
  view=emptyView()
  private unwatchPrompt?:()=>void
  private finishing=false;private awaitingPrompt=false
+ private finishTimer?:ReturnType<typeof setTimeout>
  constructor(private transport:Transport,private id:string,private attempt:number,private sink:(bytes:Uint8Array)=>Promise<void>,private changed:(view:ZmodemView)=>void,private gateway=terminalFileGateway){this.unwatchPrompt=transport.onRemotePrompt?.(()=>{if(this.active&&!this.ending){if(this.finishing&&!this.incoming)void this.complete();else void this.fail(Error(tr("服务器已返回命令行，原传输请求已结束。请重新运行 rz / sz。")),false)}})}
  private emit(patch:Partial<ZmodemView>,force=true){this.view={...this.view,...patch};const now=Date.now();if(force||now-this.lastProgress>=100){this.lastProgress=now;this.changed({...this.view})}}
  private terminal(bytes:Uint8Array){if(this.dropPrefix){const skip=Math.min(bytes.length,this.dropPrefix);bytes=bytes.subarray(skip);this.dropPrefix-=skip}if(!bytes.length)return;this.unwritten=0;if(bytes.length>=4)this.tail=bytes.slice(-4);else{const tail=new Uint8Array(this.tail.length+bytes.length);tail.set(this.tail);tail.set(bytes,this.tail.length);this.tail=tail.slice(-4)};this.text=this.text.then(()=>this.sink(bytes))}
- private sender(octets:number[]){if(this.session?.type==='receive'&&octets[0]===42&&octets[1]===42&&octets[2]===24&&octets[3]===66&&octets[4]===48&&octets[5]===56){this.finishing=true;this.emit({phase:'finishing',message:tr("文件已保存，正在确认本批结束…")})};const generation=this.generation,data=Uint8Array.from(octets);this.queuedWire+=data.length;if(this.queuedWire>262144){this.queuedWire-=data.length;data.fill(0);throw Error(tr("终端传输积压过多，已停止以保留文件。"))}
-  this.wire=this.wire.then(async()=>{await Promise.resolve();await this.io;if(this.disposed||this.aborting||generation!==this.generation)return;await this.transport.writeTransfer(data)}).finally(()=>{this.queuedWire-=data.length;data.fill(0)})
+ private sender(octets:number[]){
+  const finalReply=this.session?.type==='receive'&&octets[0]===42&&octets[1]===42&&octets[2]===24&&octets[3]===66&&octets[4]===48&&octets[5]===56
+  if(finalReply){this.finishing=true;this.emit({phase:'finishing',message:tr("文件已保存，正在确认本批结束…")})}
+  const generation=this.generation,data=Uint8Array.from(octets);this.queuedWire+=data.length;if(this.queuedWire>262144){this.queuedWire-=data.length;data.fill(0);throw Error(tr("终端传输积压过多，已停止以保留文件。"))}
+  this.wire=this.wire.then(async()=>{
+   await Promise.resolve()
+   await this.io
+   if(this.disposed||this.aborting||generation!==this.generation)return
+   await this.transport.writeTransfer(data)
+   if(finalReply&&!this.ending&&generation===this.generation){
+    clearTimeout(this.finishTimer)
+    this.finishTimer=setTimeout(()=>{void this.complete(false)},4000)
+   }
+  }).finally(()=>{this.queuedWire-=data.length;data.fill(0)})
   void this.wire.catch(cause=>this.fail(cause))
  }
  async consume(packet:Uint8Array){if(this.disposed)return;if(this.awaitingPrompt){this.terminal(packet);await this.text;return}
@@ -62,11 +75,30 @@ export class ZmodemEngine{
    }if(generation===this.generation)await session.close()
   }catch(cause){if(generation===this.generation)await this.fail(cause)}
  }
- private async complete(){if(this.ending||this.disposed)return;this.ending=true;try{await this.io;await this.wire;await this.cleanup(false);this.emit({phase:'completed',message:tr("{p0} 个文件完成{p1}。会话录制可手动重新开启。", this.view.files, (this.view.skipped?tr("，跳过 {p0} 个", this.view.skipped):'')),error:''})}catch(cause){this.emit({phase:'failed',error:problem(cause),message:tr("传输未确认完成，请检查文件。")});await this.cleanup(true)}finally{this.ending=false;this.aborting=false;this.resetProtocol()}}
+ private async complete(confirmed=true){
+  if(this.ending||this.disposed||!this.scope)return
+  this.ending=true
+  clearTimeout(this.finishTimer)
+  try{
+   await this.io
+   await this.wire
+   if(!confirmed&&!this.awaitingPrompt){
+    this.terminal(Uint8Array.from(this.session?.get_pending_input()??[]))
+    await this.text
+   }
+   await this.cleanup(false)
+   if(confirmed&&!this.incoming&&!this.offer){
+    this.emit({phase:'completed',message:tr("{p0} 个文件完成{p1}。会话录制可手动重新开启。", this.view.files, (this.view.skipped?tr("，跳过 {p0} 个", this.view.skipped):'')),error:''})
+   }else{
+    this.emit({phase:'unconfirmed',message:tr("已保存 {p0} 个文件，未确认本批传输结束。",this.view.files),error:''})
+   }
+  }catch(cause){this.emit({phase:'failed',error:problem(cause),message:tr("传输未确认完成，请检查文件。")});await this.cleanup(true)}
+  finally{this.ending=false;this.aborting=false;this.resetProtocol()}
+ }
  private async cleanup(abort:boolean){const scope=this.scope;this.scope=undefined;let error:unknown;try{if(scope)await this.gateway.cancel(scope)}catch(cause){error=cause}finally{await this.transport.endTransfer(abort)};if(error)throw error}
  async cancel(message=tr("已取消传输；已经完成的文件保留。"),abort=true){if(this.ending)return;this.ending=true;this.aborting=true;this.generation++;try{await this.io.catch(()=>{});await this.cleanup(abort);this.emit({phase:'cancelled',message,error:''})}catch(cause){this.emit({phase:'failed',message,error:problem(cause)})}finally{this.ending=false;this.resetProtocol()}}
  private async fail(cause:unknown,abort=true){if(this.ending||this.disposed)return;const message=problem(cause);await this.cancel(tr("传输未完成；原目标和已完成的文件保留。"),abort);this.emit({phase:'failed',error:message})}
- private resetProtocol(){this.sentry=undefined;this.session=undefined;this.offer=undefined;this.incoming=null;this.folder=null;this.autoReceive=false;this.unwritten=0;this.dropPrefix=0;this.probeLength=0;this.probe=null;this.finishing=false;this.awaitingPrompt=false;this.io=Promise.resolve();this.wire=Promise.resolve();this.initializing=Promise.resolve()}
+ private resetProtocol(){clearTimeout(this.finishTimer);this.sentry=undefined;this.session=undefined;this.offer=undefined;this.incoming=null;this.folder=null;this.autoReceive=false;this.unwritten=0;this.dropPrefix=0;this.probeLength=0;this.probe=null;this.finishing=false;this.awaitingPrompt=false;this.io=Promise.resolve();this.wire=Promise.resolve();this.initializing=Promise.resolve()}
  hide(){this.emit({open:false})}
  get active(){return!!this.scope||this.view.phase==='initializing'}
  async dispose(){if(this.disposed)return;this.unwatchPrompt?.();this.changed=()=>{};await this.cancel();this.disposed=true}

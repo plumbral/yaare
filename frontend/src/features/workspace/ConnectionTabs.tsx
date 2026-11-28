@@ -14,7 +14,7 @@ import {shortcutAria,shortcutTooltip,useShortcutOverrides} from './shortcutRefer
 export interface ConnectionTab {
   id:string; label:string; detail?:string; dirty?:boolean; terminalPaneId?:string
   layout?:SplitNode;groupId?:string; groupName?:string; icon?:OsIconName; count?:number; pinned?:boolean; disconnected?:boolean; streaming?:boolean
-  onSelect:()=>void; onClose?:()=>void
+  onSelect:()=>void; onClose?:()=>void; onNewTerminal?:()=>void
 }
 function layoutGlyph(node:SplitNode):React.ReactNode {
   if(node.kind==='leaf')return null
@@ -37,6 +37,8 @@ export default function ConnectionTabs({tabs,selected,onNewTerminal,showShortcut
     section.push(tab);sections.set(key,section)
   }
   const orderedSections=[...sections].sort(([a],[b])=>a==='pins'?-1:b==='pins'?1:0)
+  const expandedRail=!top&&!compact
+  const showGlobalAdd=!expandedRail||!tabs.some(tab=>!tab.pinned&&tab.onNewTerminal)||tabs.some(tab=>tab.id===selected&&tab.pinned)
   const grouped=(id:string,items:ConnectionTab[])=>id!=='pins'&&items.length>1&&!!items[0]?.groupName
   const visible=orderedSections.flatMap(([id,items])=>grouped(id,items)&&collapsed.includes(id)?[]:items)
   const markedCount=tabs.filter(t=>marked.includes(t.id)).length
@@ -54,7 +56,16 @@ export default function ConnectionTabs({tabs,selected,onNewTerminal,showShortcut
     }
     anchor.current=tab.id;onMark([]);tab.onSelect()
   }
-  const renderTab=(tab:ConnectionTab)=>{
+  const renderAdd=(id:string,tab:ConnectionTab|undefined)=>{
+    if(!tab?.onNewTerminal)return null
+    return <IconButton data-new-terminal-for={id} size="sm" variant="ghost"
+      label={tr('在「{p0}」中新建终端',tab.groupName||tab.label)} tooltip={tr('新建终端')}
+      icon={<Icon icon={PlusIcon} size="sm"/>} onClick={()=>{
+        if(collapsed.includes(id))onCollapse(id)
+        tab.onNewTerminal?.()
+      }}/>
+  }
+  const renderTab=(tab:ConnectionTab,addToSection?:string)=>{
     const active=selected===tab.id,chosen=marked.includes(tab.id),tile=compact||!!tab.pinned
     const name=tab.label+(tab.count&&tab.count>1?' · '+tab.count:'')+(tab.dirty?' ●':'')
     return <Stack key={tab.id} direction="horizontal" align="center" data-yaare-compound-action="" data-terminal-context-pane={tab.terminalPaneId}
@@ -70,7 +81,8 @@ export default function ConnectionTabs({tabs,selected,onNewTerminal,showShortcut
           const rect=e.currentTarget.getBoundingClientRect()
           onOrder(pane,tab.terminalPaneId,top?e.clientX>rect.left+rect.width/2:e.clientY>rect.top+rect.height/2)
         }}
-        label={name} aria-description={[chosen?tr('已选择'):undefined,tab.detail].filter(Boolean).join(' · ')} tooltip={[name,tab.detail,tab.disconnected?tr('已断开'):undefined].filter(Boolean).join(' · ')} tabIndex={entry===tab.id?0:-1}
+        label={name} aria-description={[chosen?tr('已选择'):undefined,tab.detail,tab.disconnected?tr('已断开'):undefined].filter(Boolean).join(' · ')}
+        tooltip={top?[name,tab.detail,tab.disconnected?tr('已断开'):undefined].filter(Boolean).join(' · '):tile?name:undefined} tabIndex={entry===tab.id?0:-1}
         isIconOnly={tile} variant="ghost" size="sm" icon={tab.layout?.kind==='split'?<Stack aria-hidden style={{width:'var(--spacing-4)',height:'var(--spacing-3)',border:'var(--border-width) solid currentColor',borderRadius:'var(--radius-inner)',overflow:'hidden'}}>{layoutGlyph(tab.layout)}</Stack>:tab.icon?<OsIcon name={tab.icon}/>:<Icon icon={tab.terminalPaneId?CommandLineIcon:tab.id.startsWith('files-')?FolderIcon:DocumentIcon} size="sm"/>}
         aria-keyshortcuts="Delete Shift+F10" style={{minWidth:0,flex:top?undefined:1,justifyContent:tile?'center':'flex-start',maxWidth:top?'calc(var(--spacing-10) * 6)':undefined,
         color:tab.disconnected?'var(--color-text-secondary)':undefined,backgroundColor:tab.streaming&&!active?'var(--color-background-body)':undefined}}
@@ -87,18 +99,21 @@ export default function ConnectionTabs({tabs,selected,onNewTerminal,showShortcut
           if(next){e.preventDefault();document.getElementById('tab-'+next.id)?.focus();if(e.shiftKey)select(next,true,false)}
         }}/>
       {!tile&&tab.onClose&&<IconButton data-tab-close="" size="sm" variant="ghost" tabIndex={active?0:-1} label={tr('关闭 {p0}',tab.label)} icon={<Icon icon={XMarkIcon} size="sm"/>} onClick={tab.onClose}/>}
+      {addToSection&&renderAdd(addToSection,tab)}
     </Stack>
   }
   const tabList=<Stack role="tablist" aria-label={tr('会话标签')} aria-orientation={top?'horizontal':'vertical'} direction={top?'horizontal':'vertical'} gap={1} style={{flexShrink:0}}>
       {orderedSections.map(([id,items])=>{
         const group=grouped(id,items),closed=group&&collapsed.includes(id)
         return <Stack key={id} direction={top?'horizontal':'vertical'} gap={1} style={{flexShrink:0}}>
-          {group&&<Button label={items[0]!.groupName!} tooltip={items[0]!.groupName} aria-expanded={!closed} isIconOnly={compact} size="sm" variant={closed&&items.some(t=>t.id===selected)?'secondary':'ghost'}
+          {group&&<Stack direction="horizontal" align="center" style={{minWidth:0}}><Button label={items[0]!.groupName!} tooltip={expandedRail?undefined:items[0]!.groupName} aria-expanded={!closed} isIconOnly={compact} size="sm" variant={closed&&items.some(t=>t.id===selected)?'secondary':'ghost'}
             onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-yaare-tab'))e.preventDefault()}}
             onDrop={e=>{const pane=e.dataTransfer.getData('application/x-yaare-tab');if(pane){e.preventDefault();onGroup(pane,id)}}}
-            icon={<Icon icon={closed?ChevronRightIcon:ChevronDownIcon} size="sm"/>} style={{justifyContent:compact?'center':'flex-start'}} onClick={()=>onCollapse(id)}/>}
+            icon={<Icon icon={closed?ChevronRightIcon:ChevronDownIcon} size="sm"/>} style={{flex:expandedRail?1:undefined,minWidth:0,justifyContent:compact?'center':'flex-start'}} onClick={()=>onCollapse(id)}/>
+            {expandedRail&&renderAdd(id,items.find(tab=>tab.id===selected&&tab.onNewTerminal)??items.find(tab=>tab.onNewTerminal))}
+          </Stack>}
           {!closed&&<Stack direction={top?'horizontal':'vertical'} gap={1} style={id==='pins'&&!compact&&!top?{display:'grid',gridTemplateColumns:'repeat('+pinColumns+',minmax(0,1fr))'}:undefined}>
-            {items.map(renderTab)}
+            {items.map(tab=>renderTab(tab,expandedRail&&!group&&id!=='pins'?id:undefined))}
           </Stack>}
         </Stack>
       })}
@@ -110,7 +125,7 @@ export default function ConnectionTabs({tabs,selected,onNewTerminal,showShortcut
     onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setFocused('')}}>
     {top?<HorizontalScrollArea id="horizontal-session-tabs" label={tr('会话标签')} value={selected} hideScrollbar>{tabList}</HorizontalScrollArea>:tabList}
     {markedCount>1&&<Button size="sm" variant="secondary" label={tr('组合为分屏')+' · '+markedCount} isIconOnly={compact} icon={<Icon icon={CommandLineIcon} size="sm"/>} onClick={onCombine}/>}
-    {onNewTerminal&&<Button isIconOnly={top||compact} id="connection-new-terminal" label={tr('新建终端')} tooltip={showShortcuts?shortcutTooltip(tr('新建终端'),'new-tab',shortcuts):tr('新建终端')}
+    {onNewTerminal&&showGlobalAdd&&<Button isIconOnly id="connection-new-terminal" label={tr('新建终端')} tooltip={showShortcuts?shortcutTooltip(tr('新建终端'),'new-tab',shortcuts):tr('新建终端')}
       aria-keyshortcuts={shortcutAria('new-tab',shortcuts)} size="sm" variant="ghost" style={{flexShrink:0,alignSelf:'center'}} icon={<Icon icon={PlusIcon} size="sm"/>} onClick={onNewTerminal}/>}
   </Stack>
 }

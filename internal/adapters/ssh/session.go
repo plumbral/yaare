@@ -97,6 +97,7 @@ type Session struct {
 	directorySending bool
 	directoryClosed  bool
 	directoryDone    chan struct{}
+	integration      *shellIntegrationAttempt
 	directoryDecoder directoryDecoder
 	inputEpoch       uint64
 }
@@ -233,11 +234,14 @@ func (w remoteWriter) Write(data []byte) (int, error) {
 	w.s.mu.Unlock()
 	var directory *DirectoryState
 	directory = w.s.directoryDecoder.feed(data, epoch)
+	if p := w.s.directoryDecoder.persistent; p != nil && !p.checking {
+		p.checking = true
+		go w.s.verifyPersistentDirectory(p)
+	}
 	if transferring && directory != nil && !directory.Ready {
 		directory = nil
 	}
 	defer func() {
-		w.s.outputMu.Unlock()
 		if directory != nil {
 			if transferring && directory.Ready {
 				value := *directory
@@ -251,6 +255,7 @@ func (w remoteWriter) Write(data []byte) (int, error) {
 				w.s.reportDirectory(*directory, epoch)
 			}
 		}
+		w.s.outputMu.Unlock()
 	}()
 	if w.s.outputErr != nil {
 		return 0, w.s.outputErr
@@ -433,14 +438,7 @@ func (s *Session) run(cfg *Config) error {
 		return fault("PTY_FAILED", "服务器拒绝分配交互式终端。")
 	}
 	s.directoryDecoder = directoryDecoder{token: workspace.NewID(), host: cfg.Host}
-	if directoryIntegrationAllowed(client.ServerVersion()) {
-		if err = shell.Start(directoryShellCommand(s.directoryDecoder.token)); err != nil {
-			err = shell.Shell()
-		}
-	} else {
-		err = shell.Shell()
-	}
-	if err != nil {
+	if err = shell.Shell(); err != nil {
 		return fault("SHELL_FAILED", "服务器无法启动登录 Shell。")
 	}
 	_ = conn.SetDeadline(time.Time{})

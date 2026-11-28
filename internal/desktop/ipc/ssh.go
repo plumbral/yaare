@@ -271,3 +271,11 @@ func (s *SSHService) ChangeDirectory(ctx context.Context, id string, attempt int
 	}
 	return run.ChangeDirectory(path)
 }
+
+func (s *SSHService) EnableShellIntegration(ctx context.Context, id string, attempt int) error {
+	run := s.owned(ctx, id, attempt)
+	if run == nil {
+		return errors.New("SSH 会话已结束或不可用。")
+	}
+	return run.EnableShellIntegration(ctx)
+}
